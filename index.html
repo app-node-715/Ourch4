@@ -106,7 +106,7 @@
             background-color: #25d366;
             color: white;
             border: none;
-            padding: 4px 10px;
+            padding: 4px 9px;
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
@@ -331,9 +331,42 @@
             font-family: 'B Titr', Tahoma, Arial, sans-serif;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            width: 220px;
+            width: 230px;
         }
         .call-content h3 { margin-top: 0; font-size: 18px; }
+
+        /* پنجره اختصاصی تماس تصویری تمام‌صفحه */
+        .video-call-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100dvh;
+            background: #000;
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        #remote-video {
+            width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;
+        }
+        #local-video {
+            position: absolute; top: 20px; right: 20px;
+            width: 100px; height: 140px; object-fit: cover;
+            border-radius: 10px; border: 2px solid #fff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 2010;
+            transform: scaleX(-1);
+        }
+        .video-call-controls {
+            position: absolute; bottom: 30px; left: 0; right: 0;
+            display: flex; justify-content: center; gap: 20px;
+            z-index: 2020;
+        }
+        .call-action-circle {
+            width: 55px; height: 55px; border-radius: 50%;
+            border: none; color: white; font-size: 22px;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
     </style>
 </head>
 <body>
@@ -349,7 +382,8 @@
             </div>
             
             <div class="header-btns">
-                <button class="btn-call" id="call-btn" onclick="startCall()" title="تماس">📞</button>
+                <button class="btn-call" id="call-btn" onclick="startCall(false)" title="تماس صوتی">📞</button>
+                <button class="btn-call" id="video-call-btn" onclick="startCall(true)" style="background-color: #0088cc;" title="تماس تصویری">📹</button>
                 <button class="btn-disconnect" id="disconnect-btn" onclick="requestDisconnect()">پاکسازی</button>
             </div>
         </div>
@@ -383,19 +417,31 @@
             </div>
         </div>
         
+        <!-- مدال وضعیت تماس‌های ورودی و صوتی -->
         <div id="call-modal" class="modal-overlay">
             <div class="call-content">
-                <h3 id="call-status-text">در حال تماس...</h3>
+                <h3 id="call-status-text">در حال برقراری تماس...</h3>
                 <div class="btn-group" id="call-incoming-btns" style="display:none; margin-top: 20px;">
                     <button class="btn btn-alt" onclick="acceptCall()">پاسخ</button>
                     <button class="btn btn-danger" onclick="rejectCall()">رد</button>
                 </div>
                 <div class="btn-group" id="call-active-btns" style="display:none; margin-top: 20px;">
-                    <button class="btn btn-danger" onclick="endCall()" style="width: 100%;">قطع</button>
+                    <button class="btn btn-danger" onclick="endCall()" style="width: 100%;">قطع تماس</button>
                 </div>
             </div>
         </div>
         
+        <!-- محیط تماس تصویری زنده -->
+        <div id="video-call-modal" class="video-call-overlay">
+            <video id="remote-video" autoplay playsinline></video>
+            <video id="local-video" autoplay playsinline muted></video>
+            <div class="video-call-controls">
+                <button class="call-action-circle" onclick="switchCamera()" style="background-color: #34b7f1;" title="چرخش دوربین">🔄</button>
+                <button class="call-action-circle" id="mute-mic-btn" onclick="toggleMute()" style="background-color: #6c757d;" title="میکروفون">🎙️</button>
+                <button class="call-action-circle" onclick="endCall()" style="background-color: #d9534f;" title="قطع تماس">🛑</button>
+            </div>
+        </div>
+
         <div class="connection-panel" id="connection-panel">
             <div class="status" id="status-text">در انتظار اتصال...</div>
             
@@ -451,11 +497,9 @@
             <input type="text" id="message-input" placeholder="پیام..." onkeypress="handleEnter(event)">
             <button class="icon-btn emoji-btn" id="emoji-btn" onclick="toggleStickers()" title="استیکر">😀</button>
             
-            <!-- ورودی ضبط مستقیم با دوربین گوشی -->
             <input type="file" id="camera-record-input" accept="video/*" capture="environment" style="display: none;">
             <button class="icon-btn video-record-btn" id="video-rec-btn" onclick="document.getElementById('camera-record-input').click()" title="ضبط فیلم">🎥</button>
             
-            <!-- ورودی انتخاب فایل و عکس از گالری -->
             <input type="file" id="media-input" accept="image/*, video/*" style="display: none;">
             <button class="icon-btn attach-btn" id="attach-btn" onclick="document.getElementById('media-input').click()" title="فایل">📎</button>
         </div>
@@ -492,8 +536,10 @@
         let pendingMediaData = null; 
         
         let callConnection;
-        let localAudioStream;
+        let localStream;
         let pendingCallOffer = null;
+        let isCurrentCallVideo = false;
+        let currentFacingMode = "user";
         
         let selectedMessages = [];
         let typingTimer;
@@ -620,7 +666,7 @@
                     } else if (msg.command === 'stop-typing') {
                         document.getElementById('typing-indicator').style.display = 'none';
                     }
-                } else if (msg.type === 'call-offer') handleCallOffer(msg.sdp);
+                } else if (msg.type === 'call-offer') handleCallOffer(msg.sdp, msg.isVideo);
                 else if (msg.type === 'call-answer') handleCallAnswer(msg.sdp);
                 else if (msg.type === 'call-candidate') handleCallCandidate(msg.candidate);
                 else if (msg.type === 'call-reject') handleCallReject();
@@ -823,7 +869,6 @@
             document.getElementById('camera-record-input').value = '';
         }
 
-        // ارسال داده با مکانیزم کنترل بافر (Flow Control)
         function confirmSendMedia() {
             if (!pendingMediaData || !dataChannel || dataChannel.readyState !== 'open') return;
             
@@ -835,7 +880,7 @@
             const msgId = generateUniqueId();
             displayMediaInChat(base64Data, 'sent', msgId);
             
-            const CHUNK_SIZE = 16000; // اندازه تکه‌های مطمئن
+            const CHUNK_SIZE = 16000;
             const chunks = base64Data.match(new RegExp('.{1,' + CHUNK_SIZE + '}', 'g')) || [];
             
             dataChannel.send(JSON.stringify({ type: 'media-start', id: msgId }));
@@ -878,13 +923,25 @@
             document.body.style.backgroundColor = '#ffffff';
         }
 
-        async function startCall() {
+        // سیستم تماس (صوتی و تصویری کامل)
+        async function startCall(videoCall = false) {
+            isCurrentCallVideo = videoCall;
             try {
-                localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                showCallModal("در حال تماس...", "active");
+                const constraints = {
+                    audio: true,
+                    video: videoCall ? { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } } : false
+                };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+                if (videoCall) {
+                    document.getElementById('local-video').srcObject = localStream;
+                    document.getElementById('video-call-modal').style.display = 'flex';
+                } else {
+                    showCallModal("در حال تماس صوتی...", "active");
+                }
 
                 callConnection = new RTCPeerConnection(servers);
-                localAudioStream.getTracks().forEach(track => callConnection.addTrack(track, localAudioStream));
+                localStream.getTracks().forEach(track => callConnection.addTrack(track, localStream));
 
                 callConnection.onicecandidate = e => {
                     if (e.candidate && dataChannel.readyState === 'open') {
@@ -892,29 +949,48 @@
                     }
                 };
 
-                callConnection.ontrack = e => { document.getElementById('remote-audio').srcObject = e.streams[0]; };
+                callConnection.ontrack = e => {
+                    if (isCurrentCallVideo) {
+                        document.getElementById('remote-video').srcObject = e.streams[0];
+                    } else {
+                        document.getElementById('remote-audio').srcObject = e.streams[0];
+                    }
+                };
 
                 const offer = await callConnection.createOffer();
                 await callConnection.setLocalDescription(offer);
-                dataChannel.send(JSON.stringify({ type: 'call-offer', sdp: offer }));
+                dataChannel.send(JSON.stringify({ type: 'call-offer', sdp: offer, isVideo: videoCall }));
             } catch (err) {
-                alert("خطا در دسترسی به میکروفون.");
+                alert("امکان دسترسی به دوربین یا میکروفون وجود ندارد.");
+                cleanupCall();
                 hideCallModal();
             }
         }
 
-        function handleCallOffer(offer) {
+        function handleCallOffer(offer, isVideo) {
             pendingCallOffer = offer;
-            showCallModal("تماس ورودی...", "incoming");
+            isCurrentCallVideo = isVideo;
+            showCallModal(isVideo ? "تماس تصویری ورودی..." : "تماس صوتی ورودی...", "incoming");
         }
 
         async function acceptCall() {
             try {
-                localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                showCallModal("در حال مکالمه", "active");
+                const constraints = {
+                    audio: true,
+                    video: isCurrentCallVideo ? { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } } : false
+                };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                hideCallModal();
+
+                if (isCurrentCallVideo) {
+                    document.getElementById('local-video').srcObject = localStream;
+                    document.getElementById('video-call-modal').style.display = 'flex';
+                } else {
+                    showCallModal("در حال مکالمه", "active");
+                }
 
                 callConnection = new RTCPeerConnection(servers);
-                localAudioStream.getTracks().forEach(track => callConnection.addTrack(track, localAudioStream));
+                localStream.getTracks().forEach(track => callConnection.addTrack(track, localStream));
 
                 callConnection.onicecandidate = e => {
                     if (e.candidate && dataChannel.readyState === 'open') {
@@ -922,7 +998,13 @@
                     }
                 };
 
-                callConnection.ontrack = e => { document.getElementById('remote-audio').srcObject = e.streams[0]; };
+                callConnection.ontrack = e => {
+                    if (isCurrentCallVideo) {
+                        document.getElementById('remote-video').srcObject = e.streams[0];
+                    } else {
+                        document.getElementById('remote-audio').srcObject = e.streams[0];
+                    }
+                };
 
                 await callConnection.setRemoteDescription(new RTCSessionDescription(pendingCallOffer));
                 const answer = await callConnection.createAnswer();
@@ -931,7 +1013,7 @@
                 dataChannel.send(JSON.stringify({ type: 'call-answer', sdp: answer }));
                 pendingCallOffer = null;
             } catch (err) {
-                alert("خطا در میکروفون.");
+                alert("خطا در دسترسی به دوربین/میکروفون.");
                 rejectCall();
             }
         }
@@ -951,7 +1033,9 @@
         async function handleCallAnswer(answer) {
             if (callConnection) {
                 await callConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                showCallModal("در حال مکالمه", "active");
+                if (!isCurrentCallVideo) {
+                    showCallModal("در حال مکالمه", "active");
+                }
             }
         }
 
@@ -972,8 +1056,46 @@
 
         function cleanupCall() {
             if (callConnection) { callConnection.close(); callConnection = null; }
-            if (localAudioStream) { localAudioStream.getTracks().forEach(t => t.stop()); localAudioStream = null; }
+            if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
             document.getElementById('remote-audio').srcObject = null;
+            document.getElementById('remote-video').srcObject = null;
+            document.getElementById('local-video').srcObject = null;
+            document.getElementById('video-call-modal').style.display = 'none';
+        }
+
+        async function switchCamera() {
+            if (!localStream || !isCurrentCallVideo) return;
+            currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
+            
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) videoTrack.stop();
+
+            try {
+                const newStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+                const newVideoTrack = newStream.getVideoTracks()[0];
+                localStream.removeTrack(videoTrack);
+                localStream.addTrack(newVideoTrack);
+
+                const sender = callConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) sender.replaceTrack(newVideoTrack);
+
+                document.getElementById('local-video').srcObject = localStream;
+                document.getElementById('local-video').style.transform = currentFacingMode === "user" ? "scaleX(-1)" : "none";
+            } catch (e) {
+                console.error("خطا در جابجایی دوربین", e);
+            }
+        }
+
+        function toggleMute() {
+            if (!localStream) return;
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                document.getElementById('mute-mic-btn').style.backgroundColor = audioTrack.enabled ? "#6c757d" : "#d9534f";
+                document.getElementById('mute-mic-btn').textContent = audioTrack.enabled ? "🎙️" : "🔇";
+            }
         }
 
         function showCallModal(text, state) {
