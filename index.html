@@ -175,7 +175,7 @@
             touch-action: pan-y; 
         }
         .message {
-            max-width: 75%;
+            max-width: 80%;
             padding: 6px 12px;
             border-radius: 10px;
             font-size: 15px;
@@ -208,7 +208,7 @@
             background-color: #34b7f1;
             color: white;
             text-decoration: none;
-            padding: 4px;
+            padding: 5px;
             border-radius: 4px;
             margin-top: 6px;
             font-size: 13px;
@@ -334,22 +334,6 @@
             width: 220px;
         }
         .call-content h3 { margin-top: 0; font-size: 18px; }
-
-        /* مدال ضبط ویدیو */
-        #record-video-element {
-            width: 100%;
-            max-height: 40vh;
-            border-radius: 8px;
-            background: #000;
-            transform: scaleX(-1); /* حالت آینه‌ای برای دوربین جلو */
-        }
-        .recording-indicator {
-            color: #d9534f;
-            font-weight: bold;
-            font-size: 14px;
-            margin: 6px 0;
-            display: none;
-        }
     </style>
 </head>
 <body>
@@ -393,21 +377,8 @@
             <div class="modal-content">
                 <div id="preview-container"></div>
                 <div class="btn-group">
-                    <button class="btn" onclick="confirmSendMedia()">ارسال</button>
+                    <button class="btn" id="confirm-media-btn" onclick="confirmSendMedia()">ارسال</button>
                     <button class="btn btn-danger" onclick="cancelSendMedia()">انصراف</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- مدال اختصاصی ضبط ویدیو -->
-        <div id="video-record-modal" class="modal-overlay">
-            <div class="modal-content" style="width: 320px;">
-                <video id="record-video-element" autoplay playsinline muted></video>
-                <div id="record-timer" class="recording-indicator">⏺ در حال ضبط: <span id="timer-count">0</span>s</div>
-                <div class="btn-group" style="margin-top: 10px;">
-                    <button id="start-rec-btn" class="btn btn-danger" onclick="startVideoRecording()">شروع ضبط</button>
-                    <button id="stop-rec-btn" class="btn" style="display:none; background-color:#e6b800;" onclick="stopVideoRecording()">توقف</button>
-                    <button class="btn" style="background-color: #6c757d;" onclick="closeVideoRecordModal()">بستن</button>
                 </div>
             </div>
         </div>
@@ -479,7 +450,12 @@
             </button>
             <input type="text" id="message-input" placeholder="پیام..." onkeypress="handleEnter(event)">
             <button class="icon-btn emoji-btn" id="emoji-btn" onclick="toggleStickers()" title="استیکر">😀</button>
-            <button class="icon-btn video-record-btn" id="video-rec-btn" onclick="openVideoRecordModal()" title="ضبط فیلم">🎥</button>
+            
+            <!-- ورودی ضبط مستقیم با دوربین گوشی -->
+            <input type="file" id="camera-record-input" accept="video/*" capture="environment" style="display: none;">
+            <button class="icon-btn video-record-btn" id="video-rec-btn" onclick="document.getElementById('camera-record-input').click()" title="ضبط فیلم">🎥</button>
+            
+            <!-- ورودی انتخاب فایل و عکس از گالری -->
             <input type="file" id="media-input" accept="image/*, video/*" style="display: none;">
             <button class="icon-btn attach-btn" id="attach-btn" onclick="document.getElementById('media-input').click()" title="فایل">📎</button>
         </div>
@@ -522,13 +498,6 @@
         let selectedMessages = [];
         let typingTimer;
         let isTyping = false;
-
-        // متغیرهای ضبط فیلم
-        let cameraStream = null;
-        let mediaRecorder = null;
-        let recordedChunks = [];
-        let recInterval = null;
-        let recSeconds = 0;
 
         const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302'] }] };
 
@@ -631,11 +600,13 @@
                 } else if (msg.type === 'media-start') {
                     mediaBuffers[msg.id] = [];
                 } else if (msg.type === 'media-chunk') {
-                    mediaBuffers[msg.id].push(msg.data);
+                    if (mediaBuffers[msg.id]) mediaBuffers[msg.id].push(msg.data);
                 } else if (msg.type === 'media-end') {
-                    const dataUrl = mediaBuffers[msg.id].join('');
-                    displayMediaInChat(dataUrl, 'received', msg.id);
-                    delete mediaBuffers[msg.id];
+                    if (mediaBuffers[msg.id]) {
+                        const dataUrl = mediaBuffers[msg.id].join('');
+                        displayMediaInChat(dataUrl, 'received', msg.id);
+                        delete mediaBuffers[msg.id];
+                    }
                 } else if (msg.type === 'control') {
                     if (msg.command === 'disconnect') {
                         executeSilentWipe();
@@ -791,17 +762,20 @@
             div.onclick = (e) => toggleSelection(msgId, e);
             
             const mediaWrapper = document.createElement('div');
-            let el = dataUrl.startsWith('data:video') ? document.createElement('video') : document.createElement('img');
-            if (el.tagName === 'VIDEO') {
+            const isVideo = dataUrl.startsWith('data:video');
+            let el = isVideo ? document.createElement('video') : document.createElement('img');
+            
+            if (isVideo) {
                 el.controls = true;
                 el.playsInline = true;
+                el.preload = 'metadata';
             }
             el.src = dataUrl;
             mediaWrapper.appendChild(el);
             
             const downloadLink = document.createElement('a');
             downloadLink.href = dataUrl;
-            downloadLink.download = dataUrl.startsWith('data:video') ? 'video.mp4' : 'image.png';
+            downloadLink.download = isVideo ? 'video.mp4' : 'image.png';
             downloadLink.className = 'download-btn';
             downloadLink.textContent = '⬇️ دانلود';
             
@@ -812,143 +786,79 @@
             el.onloadedmetadata = () => { container.scrollTop = container.scrollHeight; };
         }
 
-        document.getElementById('media-input').addEventListener('change', function(e) {
-            const file = e.target.files[0];
+        function handleFileSelection(file) {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function(event) {
                 pendingMediaData = event.target.result;
                 const previewContainer = document.getElementById('preview-container');
                 previewContainer.innerHTML = '';
-                let el = pendingMediaData.startsWith('data:video') ? document.createElement('video') : document.createElement('img');
-                if (el.tagName === 'VIDEO') el.controls = true;
+                const isVideo = pendingMediaData.startsWith('data:video');
+                let el = isVideo ? document.createElement('video') : document.createElement('img');
+                if (isVideo) {
+                    el.controls = true;
+                    el.playsInline = true;
+                }
                 el.src = pendingMediaData;
                 previewContainer.appendChild(el);
+                document.getElementById('confirm-media-btn').textContent = 'ارسال';
+                document.getElementById('confirm-media-btn').disabled = false;
                 document.getElementById('preview-modal').style.display = 'flex';
             };
             reader.readAsDataURL(file);
+        }
+
+        document.getElementById('media-input').addEventListener('change', function(e) {
+            handleFileSelection(e.target.files[0]);
+        });
+
+        document.getElementById('camera-record-input').addEventListener('change', function(e) {
+            handleFileSelection(e.target.files[0]);
         });
 
         function cancelSendMedia() {
             document.getElementById('preview-modal').style.display = 'none';
             pendingMediaData = null;
             document.getElementById('media-input').value = '';
+            document.getElementById('camera-record-input').value = '';
         }
 
+        // ارسال داده با مکانیزم کنترل بافر (Flow Control)
         function confirmSendMedia() {
-            if (!pendingMediaData) return;
-            document.getElementById('preview-modal').style.display = 'none';
+            if (!pendingMediaData || !dataChannel || dataChannel.readyState !== 'open') return;
+            
+            const sendBtn = document.getElementById('confirm-media-btn');
+            sendBtn.textContent = 'در حال ارسال...';
+            sendBtn.disabled = true;
+
             const base64Data = pendingMediaData;
             const msgId = generateUniqueId();
             displayMediaInChat(base64Data, 'sent', msgId);
             
-            const CHUNK_SIZE = 32000; 
-            const chunks = base64Data.match(new RegExp('.{1,' + CHUNK_SIZE + '}', 'g'));
+            const CHUNK_SIZE = 16000; // اندازه تکه‌های مطمئن
+            const chunks = base64Data.match(new RegExp('.{1,' + CHUNK_SIZE + '}', 'g')) || [];
+            
             dataChannel.send(JSON.stringify({ type: 'media-start', id: msgId }));
             
-            let i = 0;
+            let chunkIndex = 0;
             function sendNextChunk() {
-                if (i < chunks.length) {
-                    dataChannel.send(JSON.stringify({ type: 'media-chunk', id: msgId, data: chunks[i] }));
-                    i++;
-                    setTimeout(sendNextChunk, 1); 
-                } else {
-                    dataChannel.send(JSON.stringify({ type: 'media-end', id: msgId }));
+                while (chunkIndex < chunks.length) {
+                    if (dataChannel.bufferedAmount > 64 * 1024) {
+                        setTimeout(sendNextChunk, 20);
+                        return;
+                    }
+                    dataChannel.send(JSON.stringify({ 
+                        type: 'media-chunk', 
+                        id: msgId, 
+                        data: chunks[chunkIndex] 
+                    }));
+                    chunkIndex++;
                 }
+                dataChannel.send(JSON.stringify({ type: 'media-end', id: msgId }));
+                cancelSendMedia();
             }
+
             sendNextChunk();
-            pendingMediaData = null;
-            document.getElementById('media-input').value = '';
-        }
-
-        // سیستم اختصاصی ضبط فیلم زنده با دوربین
-        async function openVideoRecordModal() {
-            try {
-                cameraStream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
-                    audio: true
-                });
-                const videoEl = document.getElementById('record-video-element');
-                videoEl.srcObject = cameraStream;
-                document.getElementById('video-record-modal').style.display = 'flex';
-                document.getElementById('start-rec-btn').style.display = 'inline-block';
-                document.getElementById('stop-rec-btn').style.display = 'none';
-                document.getElementById('record-timer').style.display = 'none';
-            } catch (err) {
-                alert("امکان دسترسی به دوربین یا میکروفون وجود ندارد.");
-            }
-        }
-
-        function closeVideoRecordModal() {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-            }
-            if (cameraStream) {
-                cameraStream.getTracks().forEach(t => t.stop());
-                cameraStream = null;
-            }
-            clearInterval(recInterval);
-            document.getElementById('video-record-modal').style.display = 'none';
-        }
-
-        function startVideoRecording() {
-            recordedChunks = [];
-            let options = { mimeType: 'video/webm;codecs=vp8,opus' };
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options = { mimeType: 'video/mp4' };
-                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                    options = {};
-                }
-            }
-            
-            try {
-                mediaRecorder = new MediaRecorder(cameraStream, options);
-            } catch (e) {
-                mediaRecorder = new MediaRecorder(cameraStream);
-            }
-
-            mediaRecorder.ondataavailable = e => {
-                if (e.data.size > 0) recordedChunks.push(e.data);
-            };
-
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: recordedChunks[0]?.type || 'video/mp4' });
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    pendingMediaData = reader.result;
-                    closeVideoRecordModal();
-
-                    // نمایش در پیش‌نمایش جهت تأیید ارسال
-                    const previewContainer = document.getElementById('preview-container');
-                    previewContainer.innerHTML = '';
-                    let v = document.createElement('video');
-                    v.controls = true;
-                    v.playsInline = true;
-                    v.src = pendingMediaData;
-                    previewContainer.appendChild(v);
-                    document.getElementById('preview-modal').style.display = 'flex';
-                };
-                reader.readAsDataURL(blob);
-            };
-
-            mediaRecorder.start(1000);
-            recSeconds = 0;
-            document.getElementById('timer-count').textContent = recSeconds;
-            document.getElementById('record-timer').style.display = 'block';
-            document.getElementById('start-rec-btn').style.display = 'none';
-            document.getElementById('stop-rec-btn').style.display = 'inline-block';
-
-            recInterval = setInterval(() => {
-                recSeconds++;
-                document.getElementById('timer-count').textContent = recSeconds;
-            }, 1000);
-        }
-
-        function stopVideoRecording() {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-            }
-            clearInterval(recInterval);
         }
 
         function requestDisconnect() {
@@ -962,7 +872,6 @@
 
         function executeSilentWipe() {
             cleanupCall();
-            closeVideoRecordModal();
             if (dataChannel) dataChannel.close();
             if (peerConnection) peerConnection.close();
             document.body.innerHTML = '';
