@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>App</title>
+    <style>
+        @font-face { font-family: 'B Titr'; src: local('B Titr'); }
+        @font-face { font-family: 'B Nazanin'; src: local('B Nazanin'); }
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; 
+            touch-action: none;
+        }
+        
+        body {
+            font-family: 'B Nazanin', Tahoma, Arial, sans-serif;
+            background-color: #e5ddd5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            width: 100vw;
+            transition: background-color 0.3s;
+        }
+        
+        .chat-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 100%; 
+            position: relative; 
+        }
+        
+        @media (min-width: 600px) {
+            .chat-container {
+                height: 95vh;
+                margin-top: 2.5vh;
+                border-radius: 10px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            }
+        }
+        
+        .chat-header {
+            background-color: #075e54;
+            color: white;
+            padding: 8px 15px;
+            font-family: 'B Titr', Tahoma, Arial, sans-serif;
+            font-size: 16px;
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #054c44;
+            z-index: 10;
+            height: 35px;
+            flex-shrink: 0;
+        }
+        
+        .title-container {
+            display: flex;
+            align-items: center;
+        }
+        
+        .typing-indicator {
+            display: none;
+            font-family: 'B Nazanin', Tahoma, Arial, sans-serif;
+            font-size: 14px;
+            color: #b2dfdb;
+            margin-right: 8px;
+            font-weight: normal;
+            animation: blink 1.5s infinite;
+        }
+        
+        @keyframes blink {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+        
+        .action-bar {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 51px;
+            background-color: #fff;
+            z-index: 20;
+            display: none; 
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            font-family: 'B Titr', Tahoma, Arial, sans-serif;
+            color: #000;
+        }
+        
+        .header-btns {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        
+        .btn-call {
+            background-color: #25d366;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-call:hover { background-color: #1ebe57; }
+        
+        .btn-disconnect {
+            background-color: #d9534f;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'B Titr', Tahoma, Arial, sans-serif;
+            font-size: 13px;
+        }
+        .btn-disconnect:hover { background-color: #c9302c; }
+        
+        .connection-panel {
+            background-color: #f9f9f9;
+            padding: 20px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-radius: 10px;
+            margin: auto 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .connection-panel textarea {
+            width: 95%;
+            height: 45px;
+            padding: 8px;
+            font-size: 12px;
+            direction: ltr;
+            resize: none;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-family: monospace;
+            align-self: center;
+        }
+        .btn-group { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .btn {
+            background-color: #128c7e;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'B Titr', Tahoma, Arial, sans-serif;
+            font-size: 13px;
+        }
+        .btn:hover { background-color: #075e54; }
+        .btn-alt { background-color: #25d366; color: #000; }
+        .btn-alt:hover { background-color: #1ebe57; }
+        .btn-danger { background-color: #d9534f; color: white; }
+        .btn-danger:hover { background-color: #c9302c; }
+        
+        .chat-messages {
+            flex: 1; 
+            padding: 12px 15px;
+            overflow-y: auto;
+            background-color: #efeae2;
+            display: none; 
+            flex-direction: column;
+            gap: 8px;
+            touch-action: pan-y; 
+        }
+        .message {
+            max-width: 75%;
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-size: 15px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        
+        .message.selected {
+            background-color: #b3d4fc !important;
+            box-shadow: 0 0 0 2px #0056b3;
+            transform: scale(0.98);
+        }
+        
+        .message img, .message video {
+            max-width: 100%;
+            border-radius: 6px;
+            margin-top: 4px;
+            display: block;
+        }
+        .message video { max-height: 250px; background: #000; }
+        .sent { background-color: #dcf8c6; align-self: flex-start; border-top-right-radius: 0; }
+        .received { background-color: #ffffff; align-self: flex-end; border-top-left-radius: 0; }
+        
+        .download-btn {
+            display: block;
+            text-align: center;
+            background-color: #34b7f1;
+            color: white;
+            text-decoration: none;
+            padding: 4px;
+            border-radius: 4px;
+            margin-top: 6px;
+            font-size: 13px;
+            font-family: 'B Titr', Tahoma, Arial, sans-serif;
+            transition: background 0.2s;
+        }
+        .download-btn:hover { background-color: #2a9fc4; }
+
+        .message.sticker-msg {
+            background-color: transparent;
+            box-shadow: none;
+            font-size: 45px;
+            padding: 0;
+            margin: 2px 8px;
+        }
+        .message.sticker-msg.selected {
+            background-color: rgba(179, 212, 252, 0.5) !important;
+            border-radius: 10px;
+        }
+        
+        .chat-input-area {
+            display: none; 
+            align-items: center;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-top: 1px solid #ddd;
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .send-btn {
+            background-color: #128c7e;
+            color: white;
+            border: none;
+            width: 42px;
+            height: 42px;
+            margin-left: 10px; 
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding-right: 4px; 
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+        .send-btn:hover { background-color: #075e54; }
+        
+        .chat-input-area input[type="text"] {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            font-family: 'B Nazanin', Tahoma, Arial, sans-serif;
+            font-size: 15px;
+            outline: none;
+            min-width: 0;
+        }
+        
+        .icon-btn {
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 4px; 
+            flex-shrink: 0;
+        }
+        .emoji-btn { background-color: #ffcc00; font-size: 20px; }
+        .emoji-btn:hover { background-color: #e6b800; }
+        .attach-btn { background-color: #34b7f1; }
+        .attach-btn:hover { background-color: #2a9fc4; }
+        .video-record-btn { background-color: #e91e63; }
+        .video-record-btn:hover { background-color: #d81b60; }
+        
+        .status { text-align: center; font-size: 13px; color: #d9534f; font-weight: bold; }
+        
+        .sticker-panel {
+            display: none;
+            position: absolute;
+            bottom: 65px;
+            left: 10px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            z-index: 100;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .sticker-panel span { font-size: 28px; cursor: pointer; transition: transform 0.2s; text-align: center; }
+        .sticker-panel span:hover { transform: scale(1.3); }
+
+        .modal-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: #fff; padding: 15px; border-radius: 10px;
+            max-width: 85%; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        .modal-content img, .modal-content video {
+            max-width: 100%; max-height: 45vh; border-radius: 8px; margin-bottom: 10px; background: #000;
+        }
+        
+        .call-content {
+            background: #075e54; 
+            color: white; 
+            padding: 25px; 
+            border-radius: 15px;
+            font-family: 'B Titr', Tahoma, Arial, sans-serif;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 220px;
+        }
+        .call-content h3 { margin-top: 0; font-size: 18px; }
+
+        /* مدال ضبط ویدیو */
+        #record-video-element {
+            width: 100%;
+            max-height: 40vh;
+            border-radius: 8px;
+            background: #000;
+            transform: scaleX(-1); /* حالت آینه‌ای برای دوربین جلو */
+        }
+        .recording-indicator {
+            color: #d9534f;
+            font-weight: bold;
+            font-size: 14px;
+            margin: 6px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <audio id="remote-audio" autoplay playsinline style="display:none;"></audio>
+
+    <div class="chat-container" id="main-container">
+        
+        <div class="chat-header" id="chat-header">
+            <div class="title-container">
+                <span id="chat-title"></span>
+                <span id="typing-indicator" class="typing-indicator">در حال تایپ...</span>
+            </div>
+            
+            <div class="header-btns">
+                <button class="btn-call" id="call-btn" onclick="startCall()" title="تماس">📞</button>
+                <button class="btn-disconnect" id="disconnect-btn" onclick="requestDisconnect()">پاکسازی</button>
+            </div>
+        </div>
+        
+        <div class="action-bar" id="action-bar">
+            <span id="selection-count">۱ پیام</span>
+            <div class="header-btns">
+                <button class="icon-btn" onclick="showDeleteModal()" style="background-color: #d9534f;" title="حذف">🗑️</button>
+                <button class="icon-btn" onclick="clearSelection()" style="background-color: #6c757d;" title="لغو">❌</button>
+            </div>
+        </div>
+        
+        <div id="delete-modal" class="modal-overlay">
+            <div class="call-content" style="background-color: #fff; color: #000; border: 2px solid #ddd;">
+                <h3 style="color:#d9534f; margin-bottom: 20px;">حذف پیام</h3>
+                <div class="btn-group" style="flex-direction:column; gap:10px;">
+                    <button class="btn btn-danger" onclick="executeDelete('everyone')">برای هر دو نفر</button>
+                    <button class="btn btn-alt" style="background:#f0ad4e; color:#fff;" onclick="executeDelete('me')">فقط برای من</button>
+                    <button class="btn" style="background-color: #6c757d;" onclick="hideDeleteModal()">انصراف</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="preview-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div id="preview-container"></div>
+                <div class="btn-group">
+                    <button class="btn" onclick="confirmSendMedia()">ارسال</button>
+                    <button class="btn btn-danger" onclick="cancelSendMedia()">انصراف</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- مدال اختصاصی ضبط ویدیو -->
+        <div id="video-record-modal" class="modal-overlay">
+            <div class="modal-content" style="width: 320px;">
+                <video id="record-video-element" autoplay playsinline muted></video>
+                <div id="record-timer" class="recording-indicator">⏺ در حال ضبط: <span id="timer-count">0</span>s</div>
+                <div class="btn-group" style="margin-top: 10px;">
+                    <button id="start-rec-btn" class="btn btn-danger" onclick="startVideoRecording()">شروع ضبط</button>
+                    <button id="stop-rec-btn" class="btn" style="display:none; background-color:#e6b800;" onclick="stopVideoRecording()">توقف</button>
+                    <button class="btn" style="background-color: #6c757d;" onclick="closeVideoRecordModal()">بستن</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="call-modal" class="modal-overlay">
+            <div class="call-content">
+                <h3 id="call-status-text">در حال تماس...</h3>
+                <div class="btn-group" id="call-incoming-btns" style="display:none; margin-top: 20px;">
+                    <button class="btn btn-alt" onclick="acceptCall()">پاسخ</button>
+                    <button class="btn btn-danger" onclick="rejectCall()">رد</button>
+                </div>
+                <div class="btn-group" id="call-active-btns" style="display:none; margin-top: 20px;">
+                    <button class="btn btn-danger" onclick="endCall()" style="width: 100%;">قطع</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="connection-panel" id="connection-panel">
+            <div class="status" id="status-text">در انتظار اتصال...</div>
+            
+            <textarea id="my-code" placeholder="کد تولید شده شما اینجا قرار می‌گیرد" readonly onclick="this.select()"></textarea>
+            
+            <button id="copy-btn" class="btn" onclick="copyMyCode()" style="display:none; background-color:#34b7f1; width:95%; align-self:center; font-size:13px;">📋 کپی کردن کد برای ارسال</button>
+            
+            <textarea id="peer-code" placeholder="کد دریافت شده را اینجا قرار دهید"></textarea>
+            
+            <div class="btn-group">
+                <button class="btn" onclick="createOffer()">۱. ایجاد کد</button>
+                <button class="btn btn-alt" onclick="createAnswer()">۲. پاسخ</button>
+                <button class="btn" onclick="addAnswer()">۳. تایید</button>
+            </div>
+        </div>
+        
+        <div class="chat-messages" id="messages-container"></div>
+        
+        <div class="sticker-panel" id="sticker-panel">
+            <span onclick="sendSticker('👍')">👍</span>
+            <span onclick="sendSticker('❤️')">❤️</span>
+            <span onclick="sendSticker('😂')">😂</span>
+            <span onclick="sendSticker('😍')">😍</span>
+            <span onclick="sendSticker('🙏')">🙏</span>
+            <span onclick="sendSticker('🎉')">🎉</span>
+            <span onclick="sendSticker('🌹')">🌹</span>
+            <span onclick="sendSticker('💔')">💔</span>
+            <span onclick="sendSticker('😡')">😡</span>
+            <span onclick="sendSticker('😢')">😢</span>
+            <span onclick="sendSticker('👋')">👋</span>
+            <span onclick="sendSticker('☕')">☕</span>
+            <span onclick="sendSticker('🔥')">🔥</span>
+            <span onclick="sendSticker('🚀')">🚀</span>
+            <span onclick="sendSticker('🌟')">🌟</span>
+            <span onclick="sendSticker('💯')">💯</span>
+            <span onclick="sendSticker('👻')">👻</span>
+            <span onclick="sendSticker('🙈')">🙈</span>
+            <span onclick="sendSticker('😅')">😅</span>
+            <span onclick="sendSticker('🥺')">🥺</span>
+            <span onclick="sendSticker('🥳')">🥳</span>
+            <span onclick="sendSticker('💡')">💡</span>
+            <span onclick="sendSticker('💣')">💣</span>
+            <span onclick="sendSticker('🥂')">🥂</span>
+            <span onclick="sendSticker('🎁')">🎁</span>
+        </div>
+
+        <div class="chat-input-area" id="input-area">
+            <button class="send-btn" id="send-btn" onclick="sendTextMessage()" title="ارسال">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                </svg>
+            </button>
+            <input type="text" id="message-input" placeholder="پیام..." onkeypress="handleEnter(event)">
+            <button class="icon-btn emoji-btn" id="emoji-btn" onclick="toggleStickers()" title="استیکر">😀</button>
+            <button class="icon-btn video-record-btn" id="video-rec-btn" onclick="openVideoRecordModal()" title="ضبط فیلم">🎥</button>
+            <input type="file" id="media-input" accept="image/*, video/*" style="display: none;">
+            <button class="icon-btn attach-btn" id="attach-btn" onclick="document.getElementById('media-input').click()" title="فایل">📎</button>
+        </div>
+    </div>
+
+    <script>
+        const mainContainer = document.getElementById('main-container');
+        const msgContainer = document.getElementById('messages-container');
+
+        function adjustHeight() {
+            if (window.visualViewport) {
+                mainContainer.style.height = window.visualViewport.height + 'px';
+                window.scrollTo(0, 0); 
+                msgContainer.scrollTop = msgContainer.scrollHeight;
+            }
+        }
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', adjustHeight);
+            window.visualViewport.addEventListener('scroll', adjustHeight);
+            adjustHeight();
+        }
+
+        document.getElementById('message-input').addEventListener('focus', () => {
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+                msgContainer.scrollTop = msgContainer.scrollHeight;
+            }, 300);
+        });
+
+        let peerConnection;
+        let dataChannel;
+        let mediaBuffers = {}; 
+        let pendingMediaData = null; 
+        
+        let callConnection;
+        let localAudioStream;
+        let pendingCallOffer = null;
+        
+        let selectedMessages = [];
+        let typingTimer;
+        let isTyping = false;
+
+        // متغیرهای ضبط فیلم
+        let cameraStream = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recInterval = null;
+        let recSeconds = 0;
+
+        const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302'] }] };
+
+        function copyMyCode() {
+            const codeInput = document.getElementById('my-code');
+            if (!codeInput.value) return;
+            codeInput.select();
+            codeInput.setSelectionRange(0, 99999);
+            try {
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(codeInput.value).then(() => {
+                        alert('کد در حافظه کپی شد.');
+                    }).catch(() => fallbackCopy());
+                } else { fallbackCopy(); }
+            } catch (err) { fallbackCopy(); }
+        }
+        
+        function fallbackCopy() {
+            try {
+                document.execCommand('copy');
+                alert('کد در حافظه کپی شد.');
+            } catch(e) { alert('متن را به صورت دستی کپی کنید.'); }
+        }
+
+        async function setupConnection() {
+            peerConnection = new RTCPeerConnection(servers);
+            peerConnection.onicecandidate = e => {
+                if (!e.candidate) {
+                    const code = btoa(JSON.stringify(peerConnection.localDescription));
+                    document.getElementById('my-code').value = code;
+                    document.getElementById('status-text').textContent = 'کد آماده شد';
+                    document.getElementById('status-text').style.color = '#5cb85c';
+                    document.getElementById('copy-btn').style.display = 'block';
+                }
+            };
+        }
+
+        async function createOffer() {
+            document.getElementById('status-text').textContent = 'در حال تولید کد...';
+            document.getElementById('status-text').style.color = '#128c7e';
+            document.getElementById('copy-btn').style.display = 'none';
+            document.getElementById('my-code').value = '';
+            await setupConnection();
+            dataChannel = peerConnection.createDataChannel('chat');
+            setupDataChannel();
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+        }
+
+        async function createAnswer() {
+            const peerCodeStr = document.getElementById('peer-code').value;
+            if (!peerCodeStr) return alert('کد را وارد کنید.');
+            document.getElementById('status-text').textContent = 'در حال تولید کد...';
+            document.getElementById('status-text').style.color = '#128c7e';
+            document.getElementById('copy-btn').style.display = 'none';
+            document.getElementById('my-code').value = '';
+            await setupConnection();
+            peerConnection.ondatachannel = event => {
+                dataChannel = event.channel;
+                setupDataChannel();
+            };
+            try {
+                const remoteDesc = new RTCSessionDescription(JSON.parse(atob(peerCodeStr)));
+                await peerConnection.setRemoteDescription(remoteDesc);
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+            } catch(e) { 
+                alert('کد نامعتبر است.');
+                document.getElementById('status-text').textContent = 'در انتظار اتصال...';
+                document.getElementById('status-text').style.color = '#d9534f';
+            }
+        }
+
+        async function addAnswer() {
+            const peerCodeStr = document.getElementById('peer-code').value;
+            if (!peerCodeStr) return alert('کد را وارد کنید.');
+            try {
+                const remoteDesc = new RTCSessionDescription(JSON.parse(atob(peerCodeStr)));
+                if (!peerConnection.currentRemoteDescription) await peerConnection.setRemoteDescription(remoteDesc);
+            } catch(e) { alert('کد نامعتبر است.'); }
+        }
+
+        function setupDataChannel() {
+            dataChannel.onopen = () => {
+                document.getElementById('connection-panel').style.display = 'none';
+                document.getElementById('chat-header').style.display = 'flex';
+                document.getElementById('messages-container').style.display = 'flex';
+                document.getElementById('input-area').style.display = 'flex';
+                adjustHeight();
+            };
+            
+            dataChannel.onclose = () => executeSilentWipe();
+            
+            dataChannel.onmessage = event => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'text') {
+                    addMessageToChat(msg.data, 'received', msg.id);
+                } else if (msg.type === 'sticker') {
+                    addStickerToChat(msg.data, 'received', msg.id);
+                } else if (msg.type === 'media-start') {
+                    mediaBuffers[msg.id] = [];
+                } else if (msg.type === 'media-chunk') {
+                    mediaBuffers[msg.id].push(msg.data);
+                } else if (msg.type === 'media-end') {
+                    const dataUrl = mediaBuffers[msg.id].join('');
+                    displayMediaInChat(dataUrl, 'received', msg.id);
+                    delete mediaBuffers[msg.id];
+                } else if (msg.type === 'control') {
+                    if (msg.command === 'disconnect') {
+                        executeSilentWipe();
+                    } else if (msg.command === 'delete-messages') {
+                        msg.ids.forEach(id => {
+                            const el = document.querySelector(`[data-msg-id="${id}"]`);
+                            if (el) el.remove();
+                        });
+                    } else if (msg.command === 'typing') {
+                        document.getElementById('typing-indicator').style.display = 'block';
+                    } else if (msg.command === 'stop-typing') {
+                        document.getElementById('typing-indicator').style.display = 'none';
+                    }
+                } else if (msg.type === 'call-offer') handleCallOffer(msg.sdp);
+                else if (msg.type === 'call-answer') handleCallAnswer(msg.sdp);
+                else if (msg.type === 'call-candidate') handleCallCandidate(msg.candidate);
+                else if (msg.type === 'call-reject') handleCallReject();
+                else if (msg.type === 'call-end') handleCallEnd();
+            };
+        }
+
+        document.getElementById('message-input').addEventListener('input', () => {
+            if (dataChannel && dataChannel.readyState === 'open') {
+                if (!isTyping) {
+                    isTyping = true;
+                    dataChannel.send(JSON.stringify({ type: 'control', command: 'typing' }));
+                }
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => {
+                    isTyping = false;
+                    if (dataChannel && dataChannel.readyState === 'open') {
+                        dataChannel.send(JSON.stringify({ type: 'control', command: 'stop-typing' }));
+                    }
+                }, 1500);
+            }
+        });
+
+        function generateUniqueId() {
+            return 'msg-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+        }
+
+        function toggleSelection(msgId, event) {
+            if (event && event.target.tagName === 'A') return;
+            const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+            if (!el) return;
+            const index = selectedMessages.indexOf(msgId);
+            if (index === -1) {
+                selectedMessages.push(msgId);
+                el.classList.add('selected');
+            } else {
+                selectedMessages.splice(index, 1);
+                el.classList.remove('selected');
+            }
+            updateActionBar();
+        }
+
+        function updateActionBar() {
+            const bar = document.getElementById('action-bar');
+            if (selectedMessages.length > 0) {
+                bar.style.display = 'flex';
+                document.getElementById('selection-count').textContent = selectedMessages.length + ' پیام';
+            } else {
+                bar.style.display = 'none';
+            }
+        }
+
+        function clearSelection() {
+            selectedMessages.forEach(id => {
+                const el = document.querySelector(`[data-msg-id="${id}"]`);
+                if (el) el.classList.remove('selected');
+            });
+            selectedMessages = [];
+            updateActionBar();
+        }
+
+        function showDeleteModal() { document.getElementById('delete-modal').style.display = 'flex'; }
+        function hideDeleteModal() { document.getElementById('delete-modal').style.display = 'none'; }
+
+        function executeDelete(mode) {
+            if (mode === 'everyone' && dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(JSON.stringify({ 
+                    type: 'control', 
+                    command: 'delete-messages', 
+                    ids: selectedMessages 
+                }));
+            }
+            selectedMessages.forEach(id => {
+                const el = document.querySelector(`[data-msg-id="${id}"]`);
+                if (el) el.remove();
+            });
+            clearSelection();
+            hideDeleteModal();
+        }
+
+        function sendTextMessage() {
+            const input = document.getElementById('message-input');
+            const txt = input.value.trim();
+            if (txt !== "" && dataChannel && dataChannel.readyState === 'open') {
+                const msgId = generateUniqueId();
+                dataChannel.send(JSON.stringify({ type: 'text', id: msgId, data: txt }));
+                addMessageToChat(txt, 'sent', msgId);
+                input.value = '';
+                input.focus();
+                isTyping = false;
+                clearTimeout(typingTimer);
+                dataChannel.send(JSON.stringify({ type: 'control', command: 'stop-typing' }));
+            }
+        }
+
+        function handleEnter(event) { if (event.key === 'Enter') sendTextMessage(); }
+
+        function addMessageToChat(text, type, msgId) {
+            const container = document.getElementById('messages-container');
+            const div = document.createElement('div');
+            div.classList.add('message', type);
+            div.textContent = text;
+            if(msgId) div.setAttribute('data-msg-id', msgId);
+            div.onclick = (e) => toggleSelection(msgId, e);
+            container.appendChild(div);
+            setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+        }
+
+        function toggleStickers() {
+            const panel = document.getElementById('sticker-panel');
+            panel.style.display = panel.style.display === 'grid' ? 'none' : 'grid';
+        }
+
+        function sendSticker(emoji) {
+            toggleStickers();
+            if (dataChannel && dataChannel.readyState === 'open') {
+                const msgId = generateUniqueId();
+                dataChannel.send(JSON.stringify({ type: 'sticker', id: msgId, data: emoji }));
+                addStickerToChat(emoji, 'sent', msgId);
+            }
+        }
+
+        function addStickerToChat(emoji, type, msgId) {
+            const container = document.getElementById('messages-container');
+            const div = document.createElement('div');
+            div.classList.add('message', type, 'sticker-msg');
+            div.textContent = emoji;
+            if(msgId) div.setAttribute('data-msg-id', msgId);
+            div.onclick = (e) => toggleSelection(msgId, e);
+            container.appendChild(div);
+            setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+        }
+
+        function displayMediaInChat(dataUrl, type, msgId) {
+            const container = document.getElementById('messages-container');
+            const div = document.createElement('div');
+            div.classList.add('message', type);
+            if(msgId) div.setAttribute('data-msg-id', msgId);
+            div.onclick = (e) => toggleSelection(msgId, e);
+            
+            const mediaWrapper = document.createElement('div');
+            let el = dataUrl.startsWith('data:video') ? document.createElement('video') : document.createElement('img');
+            if (el.tagName === 'VIDEO') {
+                el.controls = true;
+                el.playsInline = true;
+            }
+            el.src = dataUrl;
+            mediaWrapper.appendChild(el);
+            
+            const downloadLink = document.createElement('a');
+            downloadLink.href = dataUrl;
+            downloadLink.download = dataUrl.startsWith('data:video') ? 'video.mp4' : 'image.png';
+            downloadLink.className = 'download-btn';
+            downloadLink.textContent = '⬇️ دانلود';
+            
+            mediaWrapper.appendChild(downloadLink);
+            div.appendChild(mediaWrapper);
+            container.appendChild(div);
+            el.onload = () => { container.scrollTop = container.scrollHeight; };
+            el.onloadedmetadata = () => { container.scrollTop = container.scrollHeight; };
+        }
+
+        document.getElementById('media-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                pendingMediaData = event.target.result;
+                const previewContainer = document.getElementById('preview-container');
+                previewContainer.innerHTML = '';
+                let el = pendingMediaData.startsWith('data:video') ? document.createElement('video') : document.createElement('img');
+                if (el.tagName === 'VIDEO') el.controls = true;
+                el.src = pendingMediaData;
+                previewContainer.appendChild(el);
+                document.getElementById('preview-modal').style.display = 'flex';
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function cancelSendMedia() {
+            document.getElementById('preview-modal').style.display = 'none';
+            pendingMediaData = null;
+            document.getElementById('media-input').value = '';
+        }
+
+        function confirmSendMedia() {
+            if (!pendingMediaData) return;
+            document.getElementById('preview-modal').style.display = 'none';
+            const base64Data = pendingMediaData;
+            const msgId = generateUniqueId();
+            displayMediaInChat(base64Data, 'sent', msgId);
+            
+            const CHUNK_SIZE = 32000; 
+            const chunks = base64Data.match(new RegExp('.{1,' + CHUNK_SIZE + '}', 'g'));
+            dataChannel.send(JSON.stringify({ type: 'media-start', id: msgId }));
+            
+            let i = 0;
+            function sendNextChunk() {
+                if (i < chunks.length) {
+                    dataChannel.send(JSON.stringify({ type: 'media-chunk', id: msgId, data: chunks[i] }));
+                    i++;
+                    setTimeout(sendNextChunk, 1); 
+                } else {
+                    dataChannel.send(JSON.stringify({ type: 'media-end', id: msgId }));
+                }
+            }
+            sendNextChunk();
+            pendingMediaData = null;
+            document.getElementById('media-input').value = '';
+        }
+
+        // سیستم اختصاصی ضبط فیلم زنده با دوربین
+        async function openVideoRecordModal() {
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+                    audio: true
+                });
+                const videoEl = document.getElementById('record-video-element');
+                videoEl.srcObject = cameraStream;
+                document.getElementById('video-record-modal').style.display = 'flex';
+                document.getElementById('start-rec-btn').style.display = 'inline-block';
+                document.getElementById('stop-rec-btn').style.display = 'none';
+                document.getElementById('record-timer').style.display = 'none';
+            } catch (err) {
+                alert("امکان دسترسی به دوربین یا میکروفون وجود ندارد.");
+            }
+        }
+
+        function closeVideoRecordModal() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(t => t.stop());
+                cameraStream = null;
+            }
+            clearInterval(recInterval);
+            document.getElementById('video-record-modal').style.display = 'none';
+        }
+
+        function startVideoRecording() {
+            recordedChunks = [];
+            let options = { mimeType: 'video/webm;codecs=vp8,opus' };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                options = { mimeType: 'video/mp4' };
+                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                    options = {};
+                }
+            }
+            
+            try {
+                mediaRecorder = new MediaRecorder(cameraStream, options);
+            } catch (e) {
+                mediaRecorder = new MediaRecorder(cameraStream);
+            }
+
+            mediaRecorder.ondataavailable = e => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: recordedChunks[0]?.type || 'video/mp4' });
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    pendingMediaData = reader.result;
+                    closeVideoRecordModal();
+
+                    // نمایش در پیش‌نمایش جهت تأیید ارسال
+                    const previewContainer = document.getElementById('preview-container');
+                    previewContainer.innerHTML = '';
+                    let v = document.createElement('video');
+                    v.controls = true;
+                    v.playsInline = true;
+                    v.src = pendingMediaData;
+                    previewContainer.appendChild(v);
+                    document.getElementById('preview-modal').style.display = 'flex';
+                };
+                reader.readAsDataURL(blob);
+            };
+
+            mediaRecorder.start(1000);
+            recSeconds = 0;
+            document.getElementById('timer-count').textContent = recSeconds;
+            document.getElementById('record-timer').style.display = 'block';
+            document.getElementById('start-rec-btn').style.display = 'none';
+            document.getElementById('stop-rec-btn').style.display = 'inline-block';
+
+            recInterval = setInterval(() => {
+                recSeconds++;
+                document.getElementById('timer-count').textContent = recSeconds;
+            }, 1000);
+        }
+
+        function stopVideoRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+            clearInterval(recInterval);
+        }
+
+        function requestDisconnect() {
+            if (confirm('ارتباط قطع شود؟')) {
+                if (dataChannel && dataChannel.readyState === 'open') {
+                    dataChannel.send(JSON.stringify({ type: 'control', command: 'disconnect' }));
+                }
+                executeSilentWipe();
+            }
+        }
+
+        function executeSilentWipe() {
+            cleanupCall();
+            closeVideoRecordModal();
+            if (dataChannel) dataChannel.close();
+            if (peerConnection) peerConnection.close();
+            document.body.innerHTML = '';
+            document.body.style.backgroundColor = '#ffffff';
+        }
+
+        async function startCall() {
+            try {
+                localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                showCallModal("در حال تماس...", "active");
+
+                callConnection = new RTCPeerConnection(servers);
+                localAudioStream.getTracks().forEach(track => callConnection.addTrack(track, localAudioStream));
+
+                callConnection.onicecandidate = e => {
+                    if (e.candidate && dataChannel.readyState === 'open') {
+                        dataChannel.send(JSON.stringify({ type: 'call-candidate', candidate: e.candidate }));
+                    }
+                };
+
+                callConnection.ontrack = e => { document.getElementById('remote-audio').srcObject = e.streams[0]; };
+
+                const offer = await callConnection.createOffer();
+                await callConnection.setLocalDescription(offer);
+                dataChannel.send(JSON.stringify({ type: 'call-offer', sdp: offer }));
+            } catch (err) {
+                alert("خطا در دسترسی به میکروفون.");
+                hideCallModal();
+            }
+        }
+
+        function handleCallOffer(offer) {
+            pendingCallOffer = offer;
+            showCallModal("تماس ورودی...", "incoming");
+        }
+
+        async function acceptCall() {
+            try {
+                localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                showCallModal("در حال مکالمه", "active");
+
+                callConnection = new RTCPeerConnection(servers);
+                localAudioStream.getTracks().forEach(track => callConnection.addTrack(track, localAudioStream));
+
+                callConnection.onicecandidate = e => {
+                    if (e.candidate && dataChannel.readyState === 'open') {
+                        dataChannel.send(JSON.stringify({ type: 'call-candidate', candidate: e.candidate }));
+                    }
+                };
+
+                callConnection.ontrack = e => { document.getElementById('remote-audio').srcObject = e.streams[0]; };
+
+                await callConnection.setRemoteDescription(new RTCSessionDescription(pendingCallOffer));
+                const answer = await callConnection.createAnswer();
+                await callConnection.setLocalDescription(answer);
+
+                dataChannel.send(JSON.stringify({ type: 'call-answer', sdp: answer }));
+                pendingCallOffer = null;
+            } catch (err) {
+                alert("خطا در میکروفون.");
+                rejectCall();
+            }
+        }
+
+        function rejectCall() {
+            if (dataChannel && dataChannel.readyState === 'open') dataChannel.send(JSON.stringify({ type: 'call-reject' }));
+            hideCallModal();
+            pendingCallOffer = null;
+        }
+
+        function handleCallReject() {
+            alert("تماس رد شد.");
+            cleanupCall();
+            hideCallModal();
+        }
+
+        async function handleCallAnswer(answer) {
+            if (callConnection) {
+                await callConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                showCallModal("در حال مکالمه", "active");
+            }
+        }
+
+        function handleCallCandidate(candidate) {
+            if (callConnection) callConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        }
+
+        function endCall() {
+            if (dataChannel && dataChannel.readyState === 'open') dataChannel.send(JSON.stringify({ type: 'call-end' }));
+            cleanupCall();
+            hideCallModal();
+        }
+
+        function handleCallEnd() {
+            cleanupCall();
+            hideCallModal();
+        }
+
+        function cleanupCall() {
+            if (callConnection) { callConnection.close(); callConnection = null; }
+            if (localAudioStream) { localAudioStream.getTracks().forEach(t => t.stop()); localAudioStream = null; }
+            document.getElementById('remote-audio').srcObject = null;
+        }
+
+        function showCallModal(text, state) {
+            document.getElementById('call-modal').style.display = 'flex';
+            document.getElementById('call-status-text').textContent = text;
+            if (state === 'incoming') {
+                document.getElementById('call-incoming-btns').style.display = 'flex';
+                document.getElementById('call-active-btns').style.display = 'none';
+            } else if (state === 'active') {
+                document.getElementById('call-incoming-btns').style.display = 'none';
+                document.getElementById('call-active-btns').style.display = 'flex';
+            }
+        }
+
+        function hideCallModal() { document.getElementById('call-modal').style.display = 'none'; }
+    </script>
+</body>
+</html>
