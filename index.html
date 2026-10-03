@@ -180,11 +180,14 @@
             word-wrap: break-word;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
             cursor: pointer;
+            position: relative;
+            user-select: none;
+            -webkit-user-select: none;
         }
         
         .message.selected {
             background-color: #b3d4fc !important;
-            box-shadow: 0 0 0 2px #0056b3;
+            box-shadow: 0 0 0 3px #0056b3;
         }
         
         .message img, .message video {
@@ -197,6 +200,12 @@
         .sent { background-color: #dcf8c6; align-self: flex-start; border-top-right-radius: 0; }
         .received { background-color: #ffffff; align-self: flex-end; border-top-left-radius: 0; }
         
+        .media-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
         .download-btn {
             display: block;
             text-align: center;
@@ -205,7 +214,7 @@
             text-decoration: none;
             padding: 5px;
             border-radius: 4px;
-            margin-top: 6px;
+            margin-top: 4px;
             font-size: 13px;
             font-family: 'B Titr', Tahoma, Arial, sans-serif;
         }
@@ -403,7 +412,6 @@
             </div>
         </div>
         
-        <!-- پیش‌نمایش قبل از ارسال -->
         <div id="preview-modal" class="modal-overlay">
             <div class="modal-content">
                 <div id="preview-container"></div>
@@ -414,7 +422,6 @@
             </div>
         </div>
 
-        <!-- پنجره ضبط فیلم کم‌حجم داخلی -->
         <div id="in-app-record-modal" class="modal-overlay">
             <div class="modal-content" style="width: 310px;">
                 <video id="in-app-record-video" autoplay playsinline muted></video>
@@ -718,7 +725,6 @@
                     else if (msg.type === 'call-reject') handleCallReject();
                     else if (msg.type === 'call-end') handleCallEnd();
                 } else if (event.data instanceof ArrayBuffer) {
-                    // دریافت چانک باینری
                     const view = new DataView(event.data);
                     const idLen = view.getUint8(0);
                     const idBytes = new Uint8Array(event.data, 1, idLen);
@@ -753,7 +759,7 @@
         }
 
         function toggleSelection(msgId, event) {
-            if (event && event.target.tagName === 'A') return;
+            if (event && event.target && event.target.classList.contains('download-btn')) return;
             const el = document.querySelector(`[data-msg-id="${msgId}"]`);
             if (!el) return;
             const index = selectedMessages.indexOf(msgId);
@@ -863,9 +869,13 @@
             const div = document.createElement('div');
             div.classList.add('message', alignment);
             if(msgId) div.setAttribute('data-msg-id', msgId);
+            
+            // فعال‌سازی انتخاب پیام برای کل کادر فیلم و عکس
             div.onclick = (e) => toggleSelection(msgId, e);
             
             const mediaWrapper = document.createElement('div');
+            mediaWrapper.className = 'media-container';
+            
             let el;
             if (mediaType === 'video') {
                 el = document.createElement('video');
@@ -887,11 +897,11 @@
             mediaWrapper.appendChild(downloadLink);
             div.appendChild(mediaWrapper);
             container.appendChild(div);
+            
             el.onload = () => { container.scrollTop = container.scrollHeight; };
             el.onloadeddata = () => { container.scrollTop = container.scrollHeight; };
         }
 
-        // بخش ضبط فیلم فوق‌العاده کم‌حجم و استاندارد
         async function openInAppRecordModal() {
             try {
                 await initRecordCamera(recFacingMode);
@@ -908,7 +918,6 @@
             if (recStream) {
                 recStream.getTracks().forEach(t => t.stop());
             }
-            // ابعاد 480x360 و فریم 20 برای کنترل دقیق حجم کمتر از ۴ مگابایت
             recStream = await navigator.mediaDevices.getUserMedia({
                 video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 20 }, facingMode: facing },
                 audio: true
@@ -947,7 +956,7 @@
 
             const recOptions = chosenMime ? {
                 mimeType: chosenMime,
-                videoBitsPerSecond: 450000 // بیت‌‌ریت بسیار کم ۴۵۰ کیلوبیت
+                videoBitsPerSecond: 450000
             } : { videoBitsPerSecond: 450000 };
 
             try {
@@ -967,7 +976,6 @@
                 
                 closeInAppRecordModal();
 
-                // باز کردن در پیش‌نمایش
                 const previewContainer = document.getElementById('preview-container');
                 previewContainer.innerHTML = '';
                 const v = document.createElement('video');
@@ -1001,7 +1009,6 @@
             clearInterval(recTimerInterval);
         }
 
-        // پیوست فایل از حافظه
         document.getElementById('media-input').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -1029,7 +1036,6 @@
             document.getElementById('media-input').value = '';
         }
 
-        // ارسال داده به شیوه باینری (ArrayBuffer) جهت جلوگیری از ارور بافر و خرابی فایل
         async function confirmSendMedia() {
             if (!pendingMediaBlob || !dataChannel || dataChannel.readyState !== 'open') return;
             
@@ -1051,7 +1057,7 @@
                 size: arrayBuffer.byteLength 
             }));
 
-            const CHUNK_SIZE = 16384; // 16KB
+            const CHUNK_SIZE = 16384; 
             const idBytes = new TextEncoder().encode(msgId);
             const idLen = idBytes.length;
 
