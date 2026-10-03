@@ -13,22 +13,23 @@
             margin: 0;
             padding: 0;
             overflow: hidden; 
-            touch-action: none;
+            touch-action: manipulation;
         }
         
         body {
             font-family: 'B Nazanin', Tahoma, Arial, sans-serif;
-            background-color: #e5ddd5;
+            background-color: #ffffff;
             display: flex;
             justify-content: center;
             align-items: flex-start;
             width: 100vw;
+            transition: background-color 0.3s;
         }
         
         .chat-container {
             width: 100%;
             max-width: 600px;
-            background-color: #fff;
+            background-color: #ffffff;
             display: flex;
             flex-direction: column;
             height: 100%; 
@@ -40,8 +41,20 @@
                 height: 95vh;
                 margin-top: 2.5vh;
                 border-radius: 10px;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             }
+        }
+
+        /* ناحیه کلیک مخفی در وسط صفحه */
+        .secret-trigger-area {
+            position: absolute;
+            top: 35%;
+            left: 20%;
+            width: 60%;
+            height: 30%;
+            z-index: 50;
+            cursor: default;
+            background: transparent;
         }
         
         .chat-header {
@@ -126,12 +139,14 @@
         .connection-panel {
             background-color: #f9f9f9;
             padding: 20px 15px;
-            display: flex;
+            display: none; /* به طور پیش‌فرض پنهان تا زمان ۵ بار لمس */
             flex-direction: column;
             gap: 10px;
             border-radius: 10px;
             margin: auto 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+            border: 1px solid #eee;
+            z-index: 60;
         }
         .connection-panel textarea {
             width: 95%;
@@ -318,12 +333,12 @@
         .call-content {
             background: #075e54; 
             color: white; 
-            padding: 25px; 
+            padding: 22px 18px; 
             border-radius: 15px;
             font-family: 'B Titr', Tahoma, Arial, sans-serif;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            width: 230px;
+            width: 250px;
         }
 
         #in-app-record-video {
@@ -380,6 +395,9 @@
 
     <div class="chat-container" id="main-container">
         
+        <!-- ناحیه لمسی نامرئی در مرکز صفحه -->
+        <div class="secret-trigger-area" id="secret-area" onclick="handleSecretClick()"></div>
+
         <div class="chat-header" id="chat-header">
             <div class="title-container">
                 <span id="chat-title"></span>
@@ -389,7 +407,7 @@
             <div class="header-btns">
                 <button class="btn-call" id="call-btn" onclick="startCall(false)" title="تماس صوتی">📞</button>
                 <button class="btn-call" id="video-call-btn" onclick="startCall(true)" style="background-color: #0088cc;" title="تماس تصویری">📹</button>
-                <button class="btn-disconnect" id="disconnect-btn" onclick="requestDisconnect()">پاکسازی</button>
+                <button class="btn-disconnect" id="disconnect-btn" onclick="showWipeModal()">پاکسازی</button>
             </div>
         </div>
         
@@ -412,6 +430,17 @@
             </div>
         </div>
         
+        <div id="wipe-modal" class="modal-overlay">
+            <div class="call-content" style="background-color: #fff; color: #000; border: 2px solid #ddd;">
+                <h3 style="color:#d9534f; margin-bottom: 15px; font-size:16px;">پاکسازی و خروج</h3>
+                <div class="btn-group" style="flex-direction:column; gap:10px;">
+                    <button class="btn btn-danger" onclick="executeWipeChoice('everyone')">برای هر دو نفر و قطع ارتباط</button>
+                    <button class="btn btn-alt" style="background:#f0ad4e; color:#fff;" onclick="executeWipeChoice('me')">فقط برای من و قطع ارتباط</button>
+                    <button class="btn" style="background-color: #6c757d;" onclick="hideWipeModal()">انصراف</button>
+                </div>
+            </div>
+        </div>
+
         <div id="preview-modal" class="modal-overlay">
             <div class="modal-content">
                 <div id="preview-container"></div>
@@ -508,6 +537,27 @@
     <script>
         const mainContainer = document.getElementById('main-container');
         const msgContainer = document.getElementById('messages-container');
+
+        // مکانیزم ۵ بار کلیک مخفی
+        let secretClickCount = 0;
+        let secretClickTimer = null;
+
+        function handleSecretClick() {
+            secretClickCount++;
+            clearTimeout(secretClickTimer);
+
+            if (secretClickCount >= 5) {
+                // نمایش پنل اتصال
+                document.getElementById('connection-panel').style.display = 'flex';
+                document.getElementById('secret-area').style.display = 'none';
+                document.body.style.backgroundColor = '#e5ddd5';
+                secretClickCount = 0;
+            } else {
+                secretClickTimer = setTimeout(() => {
+                    secretClickCount = 0;
+                }, 2000); // ۵ کلیک باید ظرف ۲ ثانیه انجام شود
+            }
+        }
 
         function adjustHeight() {
             if (window.visualViewport) {
@@ -676,9 +726,11 @@
             dataChannel.binaryType = 'arraybuffer';
             dataChannel.onopen = () => {
                 document.getElementById('connection-panel').style.display = 'none';
+                document.getElementById('secret-area').style.display = 'none';
                 document.getElementById('chat-header').style.display = 'flex';
                 document.getElementById('messages-container').style.display = 'flex';
                 document.getElementById('input-area').style.display = 'flex';
+                document.body.style.backgroundColor = '#e5ddd5';
                 adjustHeight();
             };
             
@@ -869,8 +921,6 @@
             const div = document.createElement('div');
             div.classList.add('message', alignment);
             if(msgId) div.setAttribute('data-msg-id', msgId);
-            
-            // فعال‌سازی انتخاب پیام برای کل کادر فیلم و عکس
             div.onclick = (e) => toggleSelection(msgId, e);
             
             const mediaWrapper = document.createElement('div');
@@ -1087,11 +1137,26 @@
             sendChunks();
         }
 
-        function requestDisconnect() {
-            if (confirm('ارتباط قطع شود؟')) {
+        function showWipeModal() {
+            document.getElementById('wipe-modal').style.display = 'flex';
+        }
+
+        function hideWipeModal() {
+            document.getElementById('wipe-modal').style.display = 'none';
+        }
+
+        function executeWipeChoice(mode) {
+            hideWipeModal();
+            if (mode === 'everyone') {
                 if (dataChannel && dataChannel.readyState === 'open') {
-                    dataChannel.send(JSON.stringify({ type: 'control', command: 'disconnect' }));
+                    try {
+                        dataChannel.send(JSON.stringify({ type: 'control', command: 'disconnect' }));
+                    } catch(e) {}
                 }
+                setTimeout(() => {
+                    executeSilentWipe();
+                }, 100);
+            } else if (mode === 'me') {
                 executeSilentWipe();
             }
         }
@@ -1099,8 +1164,13 @@
         function executeSilentWipe() {
             cleanupCall();
             closeInAppRecordModal();
-            if (dataChannel) dataChannel.close();
-            if (peerConnection) peerConnection.close();
+            if (dataChannel) {
+                dataChannel.onclose = null;
+                dataChannel.close();
+            }
+            if (peerConnection) {
+                peerConnection.close();
+            }
             document.body.innerHTML = '';
             document.body.style.backgroundColor = '#ffffff';
         }
