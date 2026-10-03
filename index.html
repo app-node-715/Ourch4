@@ -23,7 +23,6 @@
             justify-content: center;
             align-items: flex-start;
             width: 100vw;
-            transition: background-color 0.3s;
         }
         
         .chat-container {
@@ -123,7 +122,6 @@
             font-family: 'B Titr', Tahoma, Arial, sans-serif;
             font-size: 13px;
         }
-        .btn-disconnect:hover { background-color: #c9302c; }
         
         .connection-panel {
             background-color: #f9f9f9;
@@ -137,7 +135,7 @@
         }
         .connection-panel textarea {
             width: 95%;
-            height: 45px;
+            height: 55px;
             padding: 8px;
             font-size: 12px;
             direction: ltr;
@@ -162,7 +160,6 @@
         .btn-alt { background-color: #25d366; color: #000; }
         .btn-alt:hover { background-color: #1ebe57; }
         .btn-danger { background-color: #d9534f; color: white; }
-        .btn-danger:hover { background-color: #c9302c; }
         
         .chat-messages {
             flex: 1; 
@@ -183,13 +180,11 @@
             word-wrap: break-word;
             box-shadow: 0 1px 2px rgba(0,0,0,0.1);
             cursor: pointer;
-            transition: background-color 0.2s, transform 0.1s;
         }
         
         .message.selected {
             background-color: #b3d4fc !important;
             box-shadow: 0 0 0 2px #0056b3;
-            transform: scale(0.98);
         }
         
         .message img, .message video {
@@ -213,9 +208,7 @@
             margin-top: 6px;
             font-size: 13px;
             font-family: 'B Titr', Tahoma, Arial, sans-serif;
-            transition: background 0.2s;
         }
-        .download-btn:hover { background-color: #2a9fc4; }
 
         .message.sticker-msg {
             background-color: transparent;
@@ -223,10 +216,6 @@
             font-size: 45px;
             padding: 0;
             margin: 2px 8px;
-        }
-        .message.sticker-msg.selected {
-            background-color: rgba(179, 212, 252, 0.5) !important;
-            border-radius: 10px;
         }
         
         .chat-input-area {
@@ -252,10 +241,8 @@
             justify-content: center;
             align-items: center;
             padding-right: 4px; 
-            transition: background 0.2s;
             flex-shrink: 0;
         }
-        .send-btn:hover { background-color: #075e54; }
         
         .chat-input-area input[type="text"] {
             flex: 1;
@@ -282,12 +269,9 @@
             margin-right: 4px; 
             flex-shrink: 0;
         }
-        .emoji-btn { background-color: #ffcc00; font-size: 20px; }
-        .emoji-btn:hover { background-color: #e6b800; }
+        .emoji-btn { background-color: #ffcc00; }
         .attach-btn { background-color: #34b7f1; }
-        .attach-btn:hover { background-color: #2a9fc4; }
         .video-record-btn { background-color: #e91e63; }
-        .video-record-btn:hover { background-color: #d81b60; }
         
         .status { text-align: center; font-size: 13px; color: #d9534f; font-weight: bold; }
         
@@ -307,8 +291,7 @@
             max-height: 200px;
             overflow-y: auto;
         }
-        .sticker-panel span { font-size: 28px; cursor: pointer; transition: transform 0.2s; text-align: center; }
-        .sticker-panel span:hover { transform: scale(1.3); }
+        .sticker-panel span { font-size: 28px; cursor: pointer; text-align: center; }
 
         .modal-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -333,9 +316,23 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             width: 230px;
         }
-        .call-content h3 { margin-top: 0; font-size: 18px; }
 
-        /* پنجره اختصاصی تماس تصویری تمام‌صفحه */
+        /* استایل مدال ضبط فیلم داخلی و کم‌حجم */
+        #in-app-record-video {
+            width: 100%;
+            max-height: 45vh;
+            border-radius: 8px;
+            background: #000;
+            object-fit: cover;
+        }
+        .record-timer-text {
+            color: #d9534f;
+            font-weight: bold;
+            font-size: 15px;
+            margin: 8px 0;
+            display: none;
+        }
+
         .video-call-overlay {
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100dvh;
@@ -365,7 +362,7 @@
             width: 55px; height: 55px; border-radius: 50%;
             border: none; color: white; font-size: 22px;
             display: flex; justify-content: center; align-items: center;
-            cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            cursor: pointer;
         }
     </style>
 </head>
@@ -391,7 +388,7 @@
         <div class="action-bar" id="action-bar">
             <span id="selection-count">۱ پیام</span>
             <div class="header-btns">
-                <button class="icon-btn" onclick="showDeleteModal()" style="background-color: #d9534f;" title="حذف">🗑️</button>
+                <button class="icon-btn" onclick="showDeleteModal()" style="background-color: #d9534f;" title="حذف">🗑</button>
                 <button class="icon-btn" onclick="clearSelection()" style="background-color: #6c757d;" title="لغو">❌</button>
             </div>
         </div>
@@ -416,8 +413,21 @@
                 </div>
             </div>
         </div>
-        
-        <!-- مدال وضعیت تماس‌های ورودی و صوتی -->
+
+        <!-- مدال ضبط مستقیم ویدیوی فشرده بدون ذخیره در گالری -->
+        <div id="in-app-record-modal" class="modal-overlay">
+            <div class="modal-content" style="width: 310px;">
+                <video id="in-app-record-video" autoplay playsinline muted></video>
+                <div id="rec-timer" class="record-timer-text">⏺ ضبط: <span id="rec-sec">0</span> ثانیه</div>
+                <div class="btn-group" style="margin-top: 10px;">
+                    <button class="btn" onclick="switchRecordCamera()" style="background-color: #34b7f1;" title="چرخش">🔄</button>
+                    <button id="start-rec-btn" class="btn btn-danger" onclick="startInAppRecording()">شروع ضبط</button>
+                    <button id="stop-rec-btn" class="btn" style="display:none; background-color:#e6b800;" onclick="stopInAppRecording()">پایان و ارسال</button>
+                    <button class="btn" style="background-color: #6c757d;" onclick="closeInAppRecordModal()">بستن</button>
+                </div>
+            </div>
+        </div>
+
         <div id="call-modal" class="modal-overlay">
             <div class="call-content">
                 <h3 id="call-status-text">در حال برقراری تماس...</h3>
@@ -431,7 +441,6 @@
             </div>
         </div>
         
-        <!-- محیط تماس تصویری زنده -->
         <div id="video-call-modal" class="video-call-overlay">
             <video id="remote-video" autoplay playsinline></video>
             <video id="local-video" autoplay playsinline muted></video>
@@ -469,23 +478,8 @@
             <span onclick="sendSticker('🎉')">🎉</span>
             <span onclick="sendSticker('🌹')">🌹</span>
             <span onclick="sendSticker('💔')">💔</span>
-            <span onclick="sendSticker('😡')">😡</span>
-            <span onclick="sendSticker('😢')">😢</span>
             <span onclick="sendSticker('👋')">👋</span>
-            <span onclick="sendSticker('☕')">☕</span>
             <span onclick="sendSticker('🔥')">🔥</span>
-            <span onclick="sendSticker('🚀')">🚀</span>
-            <span onclick="sendSticker('🌟')">🌟</span>
-            <span onclick="sendSticker('💯')">💯</span>
-            <span onclick="sendSticker('👻')">👻</span>
-            <span onclick="sendSticker('🙈')">🙈</span>
-            <span onclick="sendSticker('😅')">😅</span>
-            <span onclick="sendSticker('🥺')">🥺</span>
-            <span onclick="sendSticker('🥳')">🥳</span>
-            <span onclick="sendSticker('💡')">💡</span>
-            <span onclick="sendSticker('💣')">💣</span>
-            <span onclick="sendSticker('🥂')">🥂</span>
-            <span onclick="sendSticker('🎁')">🎁</span>
         </div>
 
         <div class="chat-input-area" id="input-area">
@@ -497,9 +491,10 @@
             <input type="text" id="message-input" placeholder="پیام..." onkeypress="handleEnter(event)">
             <button class="icon-btn emoji-btn" id="emoji-btn" onclick="toggleStickers()" title="استیکر">😀</button>
             
-            <input type="file" id="camera-record-input" accept="video/*" capture="environment" style="display: none;">
-            <button class="icon-btn video-record-btn" id="video-rec-btn" onclick="document.getElementById('camera-record-input').click()" title="ضبط فیلم">🎥</button>
+            <!-- دکمه ضبط مستقیم بدون ذخیره با حجم کم -->
+            <button class="icon-btn video-record-btn" id="video-rec-btn" onclick="openInAppRecordModal()" title="فیلم کم‌حجم">🎥</button>
             
+            <!-- پیوست فایل و عکس اختیاری از گالری -->
             <input type="file" id="media-input" accept="image/*, video/*" style="display: none;">
             <button class="icon-btn attach-btn" id="attach-btn" onclick="document.getElementById('media-input').click()" title="فایل">📎</button>
         </div>
@@ -523,13 +518,6 @@
             adjustHeight();
         }
 
-        document.getElementById('message-input').addEventListener('focus', () => {
-            setTimeout(() => {
-                window.scrollTo(0, 0);
-                msgContainer.scrollTop = msgContainer.scrollHeight;
-            }, 300);
-        });
-
         let peerConnection;
         let dataChannel;
         let mediaBuffers = {}; 
@@ -545,7 +533,21 @@
         let typingTimer;
         let isTyping = false;
 
-        const servers = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302'] }] };
+        // متغیرهای ضبط فشرده داخلی
+        let recStream = null;
+        let internalRecorder = null;
+        let recChunks = [];
+        let recTimerInterval = null;
+        let recSecCount = 0;
+        let recFacingMode = "user";
+
+        const servers = {
+            iceServers: [
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun.l.google.com:19302' }
+            ]
+        };
 
         function copyMyCode() {
             const codeInput = document.getElementById('my-code');
@@ -553,59 +555,96 @@
             codeInput.select();
             codeInput.setSelectionRange(0, 99999);
             try {
-                if (navigator.clipboard) {
-                    navigator.clipboard.writeText(codeInput.value).then(() => {
-                        alert('کد در حافظه کپی شد.');
-                    }).catch(() => fallbackCopy());
-                } else { fallbackCopy(); }
+                navigator.clipboard.writeText(codeInput.value).then(() => {
+                    alert('کد کپی شد.');
+                }).catch(() => fallbackCopy());
             } catch (err) { fallbackCopy(); }
         }
         
         function fallbackCopy() {
             try {
                 document.execCommand('copy');
-                alert('کد در حافظه کپی شد.');
-            } catch(e) { alert('متن را به صورت دستی کپی کنید.'); }
+                alert('کد کپی شد.');
+            } catch(e) { alert('کد را دستی کپی کنید.'); }
         }
 
-        async function setupConnection() {
-            peerConnection = new RTCPeerConnection(servers);
-            peerConnection.onicecandidate = e => {
-                if (!e.candidate) {
-                    const code = btoa(JSON.stringify(peerConnection.localDescription));
-                    document.getElementById('my-code').value = code;
-                    document.getElementById('status-text').textContent = 'کد آماده شد';
-                    document.getElementById('status-text').style.color = '#5cb85c';
-                    document.getElementById('copy-btn').style.display = 'block';
-                }
-            };
+        function displayGeneratedCode() {
+            if (!peerConnection || !peerConnection.localDescription) return;
+            const code = btoa(JSON.stringify(peerConnection.localDescription));
+            document.getElementById('my-code').value = code;
+            document.getElementById('status-text').textContent = 'کد آماده شد';
+            document.getElementById('status-text').style.color = '#5cb85c';
+            document.getElementById('copy-btn').style.display = 'block';
         }
 
         async function createOffer() {
-            document.getElementById('status-text').textContent = 'در حال تولید کد...';
-            document.getElementById('status-text').style.color = '#128c7e';
-            document.getElementById('copy-btn').style.display = 'none';
-            document.getElementById('my-code').value = '';
-            await setupConnection();
-            dataChannel = peerConnection.createDataChannel('chat');
-            setupDataChannel();
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
+            try {
+                document.getElementById('status-text').textContent = 'در حال تولید کد...';
+                document.getElementById('status-text').style.color = '#128c7e';
+                document.getElementById('copy-btn').style.display = 'none';
+                document.getElementById('my-code').value = '';
+
+                peerConnection = new RTCPeerConnection(servers);
+                dataChannel = peerConnection.createDataChannel('chat');
+                setupDataChannel();
+
+                let codeGenerated = false;
+                const fallbackTimer = setTimeout(() => {
+                    if (!codeGenerated && peerConnection.localDescription) {
+                        codeGenerated = true;
+                        displayGeneratedCode();
+                    }
+                }, 1000);
+
+                peerConnection.onicecandidate = e => {
+                    if (!e.candidate && !codeGenerated) {
+                        codeGenerated = true;
+                        clearTimeout(fallbackTimer);
+                        displayGeneratedCode();
+                    }
+                };
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+            } catch (err) {
+                alert('خطا در تولید کد: ' + err.message);
+                document.getElementById('status-text').textContent = 'خطا رخ داد';
+                document.getElementById('status-text').style.color = '#d9534f';
+            }
         }
 
         async function createAnswer() {
-            const peerCodeStr = document.getElementById('peer-code').value;
-            if (!peerCodeStr) return alert('کد را وارد کنید.');
-            document.getElementById('status-text').textContent = 'در حال تولید کد...';
-            document.getElementById('status-text').style.color = '#128c7e';
-            document.getElementById('copy-btn').style.display = 'none';
-            document.getElementById('my-code').value = '';
-            await setupConnection();
-            peerConnection.ondatachannel = event => {
-                dataChannel = event.channel;
-                setupDataChannel();
-            };
+            const peerCodeStr = document.getElementById('peer-code').value.trim();
+            if (!peerCodeStr) return alert('ابتدا کد دریافتی را وارد کنید.');
+
             try {
+                document.getElementById('status-text').textContent = 'در حال تولید کد پاسخ...';
+                document.getElementById('status-text').style.color = '#128c7e';
+                document.getElementById('copy-btn').style.display = 'none';
+                document.getElementById('my-code').value = '';
+
+                peerConnection = new RTCPeerConnection(servers);
+                peerConnection.ondatachannel = event => {
+                    dataChannel = event.channel;
+                    setupDataChannel();
+                };
+
+                let codeGenerated = false;
+                const fallbackTimer = setTimeout(() => {
+                    if (!codeGenerated && peerConnection.localDescription) {
+                        codeGenerated = true;
+                        displayGeneratedCode();
+                    }
+                }, 1000);
+
+                peerConnection.onicecandidate = e => {
+                    if (!e.candidate && !codeGenerated) {
+                        codeGenerated = true;
+                        clearTimeout(fallbackTimer);
+                        displayGeneratedCode();
+                    }
+                };
+
                 const remoteDesc = new RTCSessionDescription(JSON.parse(atob(peerCodeStr)));
                 await peerConnection.setRemoteDescription(remoteDesc);
                 const answer = await peerConnection.createAnswer();
@@ -618,12 +657,14 @@
         }
 
         async function addAnswer() {
-            const peerCodeStr = document.getElementById('peer-code').value;
-            if (!peerCodeStr) return alert('کد را وارد کنید.');
+            const peerCodeStr = document.getElementById('peer-code').value.trim();
+            if (!peerCodeStr) return alert('کد تایید را وارد کنید.');
             try {
                 const remoteDesc = new RTCSessionDescription(JSON.parse(atob(peerCodeStr)));
-                if (!peerConnection.currentRemoteDescription) await peerConnection.setRemoteDescription(remoteDesc);
-            } catch(e) { alert('کد نامعتبر است.'); }
+                if (!peerConnection.currentRemoteDescription) {
+                    await peerConnection.setRemoteDescription(remoteDesc);
+                }
+            } catch(e) { alert('کد تایید نامعتبر است.'); }
         }
 
         function setupDataChannel() {
@@ -832,7 +873,121 @@
             el.onloadedmetadata = () => { container.scrollTop = container.scrollHeight; };
         }
 
-        function handleFileSelection(file) {
+        // بخش ضبط فیلم داخلی و بهینه‌سازی‌شده (بدون ذخیره در گالری با حجم کم)
+        async function openInAppRecordModal() {
+            try {
+                await initRecordCamera(recFacingMode);
+                document.getElementById('in-app-record-modal').style.display = 'flex';
+                document.getElementById('start-rec-btn').style.display = 'inline-block';
+                document.getElementById('stop-rec-btn').style.display = 'none';
+                document.getElementById('rec-timer').style.display = 'none';
+            } catch (err) {
+                alert("دسترسی به دوربین یا میکروفون امکان‌پذیر نشد.");
+            }
+        }
+
+        async function initRecordCamera(facing) {
+            if (recStream) {
+                recStream.getTracks().forEach(t => t.stop());
+            }
+            // رزولوشن بهینه 640x480 برای دستیابی به حجم زیر ۵ تا ۸ مگابایت
+            recStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: facing },
+                audio: true
+            });
+            const v = document.getElementById('in-app-record-video');
+            v.srcObject = recStream;
+            v.style.transform = (facing === "user") ? "scaleX(-1)" : "none";
+        }
+
+        async function switchRecordCamera() {
+            recFacingMode = (recFacingMode === "user") ? "environment" : "user";
+            await initRecordCamera(recFacingMode);
+        }
+
+        function closeInAppRecordModal() {
+            if (internalRecorder && internalRecorder.state === 'recording') {
+                internalRecorder.stop();
+            }
+            if (recStream) {
+                recStream.getTracks().forEach(t => t.stop());
+                recStream = null;
+            }
+            clearInterval(recTimerInterval);
+            document.getElementById('in-app-record-modal').style.display = 'none';
+        }
+
+        function startInAppRecording() {
+            recChunks = [];
+
+            // فرمت فشرده با اولویت MP4 یا WebM سازگار
+            let mime = 'video/mp4';
+            if (!MediaRecorder.isTypeSupported(mime)) {
+                mime = 'video/webm;codecs=vp8,opus';
+                if (!MediaRecorder.isTypeSupported(mime)) {
+                    mime = '';
+                }
+            }
+
+            // محدود کردن نرخ بیت به ۸۰۰ کیلوبیت بر ثانیه (۱ دقیقه حدود ۶ مگابایت)
+            const options = mime ? { mimeType: mime, videoBitsPerSecond: 800000 } : { videoBitsPerSecond: 800000 };
+
+            try {
+                internalRecorder = new MediaRecorder(recStream, options);
+            } catch(e) {
+                internalRecorder = new MediaRecorder(recStream);
+            }
+
+            internalRecorder.ondataavailable = e => {
+                if (e.data && e.data.size > 0) recChunks.push(e.data);
+            };
+
+            internalRecorder.onstop = () => {
+                // فقط در حافظه رم نگهداری می‌شود و در گوشی ذخیره نخواهد شد
+                const blob = new Blob(recChunks, { type: internalRecorder.mimeType || 'video/mp4' });
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    pendingMediaData = reader.result;
+                    closeInAppRecordModal();
+
+                    // نمایش پیش‌نمایش جهت تأیید ارسال
+                    const previewContainer = document.getElementById('preview-container');
+                    previewContainer.innerHTML = '';
+                    let v = document.createElement('video');
+                    v.controls = true;
+                    v.playsInline = true;
+                    v.src = pendingMediaData;
+                    previewContainer.appendChild(v);
+                    document.getElementById('confirm-media-btn').textContent = 'ارسال';
+                    document.getElementById('confirm-media-btn').disabled = false;
+                    document.getElementById('preview-modal').style.display = 'flex';
+                };
+                reader.readAsDataURL(blob);
+            };
+
+            internalRecorder.start(1000);
+            recSecCount = 0;
+            document.getElementById('rec-sec').textContent = recSecCount;
+            document.getElementById('rec-timer').style.display = 'block';
+            document.getElementById('start-rec-btn').style.display = 'none';
+            document.getElementById('stop-rec-btn').style.display = 'inline-block';
+
+            recTimerInterval = setInterval(() => {
+                recSecCount++;
+                document.getElementById('rec-sec').textContent = recSecCount;
+            }, 1000);
+        }
+
+        function stopInAppRecording() {
+            if (internalRecorder && internalRecorder.state === 'recording') {
+                internalRecorder.stop();
+            }
+            clearInterval(recTimerInterval);
+        }
+
+        // پیوست فایل از حافظه گوشی
+        document.getElementById('media-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function(event) {
@@ -852,21 +1007,12 @@
                 document.getElementById('preview-modal').style.display = 'flex';
             };
             reader.readAsDataURL(file);
-        }
-
-        document.getElementById('media-input').addEventListener('change', function(e) {
-            handleFileSelection(e.target.files[0]);
-        });
-
-        document.getElementById('camera-record-input').addEventListener('change', function(e) {
-            handleFileSelection(e.target.files[0]);
         });
 
         function cancelSendMedia() {
             document.getElementById('preview-modal').style.display = 'none';
             pendingMediaData = null;
             document.getElementById('media-input').value = '';
-            document.getElementById('camera-record-input').value = '';
         }
 
         function confirmSendMedia() {
@@ -917,13 +1063,13 @@
 
         function executeSilentWipe() {
             cleanupCall();
+            closeInAppRecordModal();
             if (dataChannel) dataChannel.close();
             if (peerConnection) peerConnection.close();
             document.body.innerHTML = '';
             document.body.style.backgroundColor = '#ffffff';
         }
 
-        // سیستم تماس (صوتی و تصویری کامل)
         async function startCall(videoCall = false) {
             isCurrentCallVideo = videoCall;
             try {
@@ -961,7 +1107,7 @@
                 await callConnection.setLocalDescription(offer);
                 dataChannel.send(JSON.stringify({ type: 'call-offer', sdp: offer, isVideo: videoCall }));
             } catch (err) {
-                alert("امکان دسترسی به دوربین یا میکروفون وجود ندارد.");
+                alert("خطا در دسترسی به دوربین یا میکروفون: " + err.message);
                 cleanupCall();
                 hideCallModal();
             }
