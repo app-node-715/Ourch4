@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>App</title>
+    <!-- استفاده از کتابخانه رایگان PeerJS برای اتصال با کدهای کوتاه -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         @font-face { font-family: 'B Titr'; src: local('B Titr'); }
         @font-face { font-family: 'B Nazanin'; src: local('B Nazanin'); }
@@ -45,7 +47,6 @@
             }
         }
 
-        /* ناحیه کلیک مخفی در وسط صفحه */
         .secret-trigger-area {
             position: absolute;
             top: 35%;
@@ -139,26 +140,27 @@
         .connection-panel {
             background-color: #f9f9f9;
             padding: 20px 15px;
-            display: none; /* به طور پیش‌فرض پنهان تا زمان ۵ بار لمس */
+            display: none;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
             border-radius: 10px;
             margin: auto 15px;
             box-shadow: 0 2px 15px rgba(0,0,0,0.08);
             border: 1px solid #eee;
             z-index: 60;
         }
-        .connection-panel textarea {
-            width: 95%;
-            height: 55px;
-            padding: 8px;
-            font-size: 12px;
+        .connection-panel input {
+            width: 90%;
+            height: 38px;
+            padding: 4px 10px;
+            font-size: 15px;
             direction: ltr;
-            resize: none;
+            text-align: center;
             border: 1px solid #ccc;
             border-radius: 6px;
-            font-family: monospace;
+            font-family: Tahoma, monospace;
             align-self: center;
+            outline: none;
         }
         .btn-group { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
         .btn {
@@ -395,7 +397,6 @@
 
     <div class="chat-container" id="main-container">
         
-        <!-- ناحیه لمسی نامرئی در مرکز صفحه -->
         <div class="secret-trigger-area" id="secret-area" onclick="handleSecretClick()"></div>
 
         <div class="chat-header" id="chat-header">
@@ -487,20 +488,17 @@
             </div>
         </div>
 
+        <!-- پنل اتصال با کدهای ساده چند رقمی -->
         <div class="connection-panel" id="connection-panel">
-            <div class="status" id="status-text">در انتظار اتصال...</div>
+            <div class="status" id="status-text">شناسه خود و مخاطب را وارد کنید</div>
             
-            <textarea id="my-code" placeholder="کد تولید شده شما اینجا قرار می‌گیرد" readonly onclick="this.select()"></textarea>
-            
-            <button id="copy-btn" class="btn" onclick="copyMyCode()" style="display:none; background-color:#34b7f1; width:95%; align-self:center; font-size:13px;">📋 کپی کردن کد برای ارسال</button>
-            
-            <textarea id="peer-code" placeholder="کد دریافت شده را اینجا قرار دهید"></textarea>
-            
-            <div class="btn-group">
-                <button class="btn" onclick="createOffer()">۱. ایجاد کد</button>
-                <button class="btn btn-alt" onclick="createAnswer()">۲. پاسخ</button>
-                <button class="btn" onclick="addAnswer()">۳. تایید</button>
-            </div>
+            <input type="text" id="my-id" placeholder="شناسه من (مثلا 1234)">
+            <button class="btn" onclick="initMyPeer()">ثبت شناسه من</button>
+
+            <hr style="border: 0; border-top: 1px solid #ddd; width: 90%; margin: 4px auto;">
+
+            <input type="text" id="peer-id" placeholder="شناسه مخاطب (مثلا 5678)">
+            <button class="btn btn-alt" onclick="connectToPeer()">اتصال به مخاطب</button>
         </div>
         
         <div class="chat-messages" id="messages-container"></div>
@@ -538,7 +536,6 @@
         const mainContainer = document.getElementById('main-container');
         const msgContainer = document.getElementById('messages-container');
 
-        // مکانیزم ۵ بار کلیک مخفی
         let secretClickCount = 0;
         let secretClickTimer = null;
 
@@ -547,7 +544,6 @@
             clearTimeout(secretClickTimer);
 
             if (secretClickCount >= 5) {
-                // نمایش پنل اتصال
                 document.getElementById('connection-panel').style.display = 'flex';
                 document.getElementById('secret-area').style.display = 'none';
                 document.body.style.backgroundColor = '#e5ddd5';
@@ -555,7 +551,7 @@
             } else {
                 secretClickTimer = setTimeout(() => {
                     secretClickCount = 0;
-                }, 2000); // ۵ کلیک باید ظرف ۲ ثانیه انجام شود
+                }, 2000);
             }
         }
 
@@ -573,15 +569,14 @@
             adjustHeight();
         }
 
-        let peerConnection;
-        let dataChannel;
+        let myPeer = null;
+        let activeConn = null;
         let incomingFiles = {}; 
         let pendingMediaBlob = null; 
         let pendingMediaType = null;
         
-        let callConnection;
-        let localStream;
-        let pendingCallOffer = null;
+        let activeMediaCall = null;
+        let localStream = null;
         let isCurrentCallVideo = false;
         let currentFacingMode = "user";
         
@@ -596,135 +591,64 @@
         let recSecCount = 0;
         let recFacingMode = "user";
 
-        const servers = {
-            iceServers: [
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun.l.google.com:19302' }
-            ]
-        };
+        // ساخت پییر بر اساس شناسه انتخابی شما (مثلاً 1234)
+        function initMyPeer() {
+            const rawId = document.getElementById('my-id').value.trim();
+            if (!rawId) return alert('شناسه خود را وارد کنید.');
 
-        function copyMyCode() {
-            const codeInput = document.getElementById('my-code');
-            if (!codeInput.value) return;
-            codeInput.select();
-            codeInput.setSelectionRange(0, 99999);
-            try {
-                navigator.clipboard.writeText(codeInput.value).then(() => {
-                    alert('کد کپی شد.');
-                }).catch(() => fallbackCopy());
-            } catch (err) { fallbackCopy(); }
-        }
-        
-        function fallbackCopy() {
-            try {
-                document.execCommand('copy');
-                alert('کد کپی شد.');
-            } catch(e) { alert('کد را دستی کپی کنید.'); }
-        }
+            // برای جلوگیری از تداخل آی‌دی‌های ساده کاربران دیگر روی سرور عمومی
+            const uniqueId = "app-p2p-" + rawId;
 
-        function displayGeneratedCode() {
-            if (!peerConnection || !peerConnection.localDescription) return;
-            const code = btoa(JSON.stringify(peerConnection.localDescription));
-            document.getElementById('my-code').value = code;
-            document.getElementById('status-text').textContent = 'کد آماده شد';
-            document.getElementById('status-text').style.color = '#5cb85c';
-            document.getElementById('copy-btn').style.display = 'block';
-        }
+            document.getElementById('status-text').textContent = 'در حال ثبت شناسه...';
+            document.getElementById('status-text').style.color = '#128c7e';
 
-        async function createOffer() {
-            try {
-                document.getElementById('status-text').textContent = 'در حال تولید کد...';
-                document.getElementById('status-text').style.color = '#128c7e';
-                document.getElementById('copy-btn').style.display = 'none';
-                document.getElementById('my-code').value = '';
+            if (myPeer) myPeer.destroy();
 
-                peerConnection = new RTCPeerConnection(servers);
-                dataChannel = peerConnection.createDataChannel('chat');
-                setupDataChannel();
+            myPeer = new Peer(uniqueId);
 
-                let codeGenerated = false;
-                const fallbackTimer = setTimeout(() => {
-                    if (!codeGenerated && peerConnection.localDescription) {
-                        codeGenerated = true;
-                        displayGeneratedCode();
-                    }
-                }, 1000);
+            myPeer.on('open', (id) => {
+                document.getElementById('status-text').textContent = `شناسه شما (${rawId}) فعال شد. منتظر طرف مقابل بمانید یا وصل شوید.`;
+                document.getElementById('status-text').style.color = '#5cb85c';
+            });
 
-                peerConnection.onicecandidate = e => {
-                    if (!e.candidate && !codeGenerated) {
-                        codeGenerated = true;
-                        clearTimeout(fallbackTimer);
-                        displayGeneratedCode();
-                    }
-                };
+            myPeer.on('connection', (conn) => {
+                activeConn = conn;
+                setupDataConnection();
+            });
 
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-            } catch (err) {
-                alert('خطا در تولید کد: ' + err.message);
-                document.getElementById('status-text').textContent = 'خطا رخ داد';
-                document.getElementById('status-text').style.color = '#d9534f';
-            }
-        }
+            myPeer.on('call', (mediaCall) => {
+                handleIncomingCall(mediaCall);
+            });
 
-        async function createAnswer() {
-            const peerCodeStr = document.getElementById('peer-code').value.trim();
-            if (!peerCodeStr) return alert('ابتدا کد دریافتی را وارد کنید.');
-
-            try {
-                document.getElementById('status-text').textContent = 'در حال تولید کد پاسخ...';
-                document.getElementById('status-text').style.color = '#128c7e';
-                document.getElementById('copy-btn').style.display = 'none';
-                document.getElementById('my-code').value = '';
-
-                peerConnection = new RTCPeerConnection(servers);
-                peerConnection.ondatachannel = event => {
-                    dataChannel = event.channel;
-                    setupDataChannel();
-                };
-
-                let codeGenerated = false;
-                const fallbackTimer = setTimeout(() => {
-                    if (!codeGenerated && peerConnection.localDescription) {
-                        codeGenerated = true;
-                        displayGeneratedCode();
-                    }
-                }, 1000);
-
-                peerConnection.onicecandidate = e => {
-                    if (!e.candidate && !codeGenerated) {
-                        codeGenerated = true;
-                        clearTimeout(fallbackTimer);
-                        displayGeneratedCode();
-                    }
-                };
-
-                const remoteDesc = new RTCSessionDescription(JSON.parse(atob(peerCodeStr)));
-                await peerConnection.setRemoteDescription(remoteDesc);
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-            } catch(e) { 
-                alert('کد نامعتبر است.');
-                document.getElementById('status-text').textContent = 'در انتظار اتصال...';
-                document.getElementById('status-text').style.color = '#d9534f';
-            }
-        }
-
-        async function addAnswer() {
-            const peerCodeStr = document.getElementById('peer-code').value.trim();
-            if (!peerCodeStr) return alert('کد تایید را وارد کنید.');
-            try {
-                const remoteDesc = new RTCSessionDescription(JSON.parse(atob(peerCodeStr)));
-                if (!peerConnection.currentRemoteDescription) {
-                    await peerConnection.setRemoteDescription(remoteDesc);
+            myPeer.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    alert('این شناسه هم‌اکنون توسط شخص دیگری در حال استفاده است. لطفاً عدد دیگری بگذارید.');
+                } else {
+                    alert('خطا در سرور اتصال: ' + err.type);
                 }
-            } catch(e) { alert('کد تایید نامعتبر است.'); }
+                document.getElementById('status-text').textContent = 'خطا در ثبت شناسه';
+                document.getElementById('status-text').style.color = '#d9534f';
+            });
         }
 
-        function setupDataChannel() {
-            dataChannel.binaryType = 'arraybuffer';
-            dataChannel.onopen = () => {
+        // وصل شدن به شناسه طرف مقابل (مثلاً 5678)
+        function connectToPeer() {
+            if (!myPeer || myPeer.disconnected) {
+                return alert('ابتدا باید شناسه خودتان را ثبت کنید.');
+            }
+            const targetRawId = document.getElementById('peer-id').value.trim();
+            if (!targetRawId) return alert('شناسه مخاطب را وارد کنید.');
+
+            const targetId = "app-p2p-" + targetRawId;
+            document.getElementById('status-text').textContent = 'در حال اتصال به مخاطب...';
+            document.getElementById('status-text').style.color = '#128c7e';
+
+            activeConn = myPeer.connect(targetId, { reliable: true });
+            setupDataConnection();
+        }
+
+        function setupDataConnection() {
+            activeConn.on('open', () => {
                 document.getElementById('connection-panel').style.display = 'none';
                 document.getElementById('secret-area').style.display = 'none';
                 document.getElementById('chat-header').style.display = 'flex';
@@ -732,13 +656,11 @@
                 document.getElementById('input-area').style.display = 'flex';
                 document.body.style.backgroundColor = '#e5ddd5';
                 adjustHeight();
-            };
-            
-            dataChannel.onclose = () => executeSilentWipe();
-            
-            dataChannel.onmessage = event => {
-                if (typeof event.data === 'string') {
-                    const msg = JSON.parse(event.data);
+            });
+
+            activeConn.on('data', (data) => {
+                if (typeof data === 'string') {
+                    const msg = JSON.parse(data);
                     if (msg.type === 'text') {
                         addMessageToChat(msg.data, 'received', msg.id);
                     } else if (msg.type === 'sticker') {
@@ -770,37 +692,44 @@
                             document.getElementById('typing-indicator').style.display = 'block';
                         } else if (msg.command === 'stop-typing') {
                             document.getElementById('typing-indicator').style.display = 'none';
+                        } else if (msg.command === 'call-reject') {
+                            alert("تماس رد شد.");
+                            cleanupCall();
+                            hideCallModal();
+                        } else if (msg.command === 'call-end') {
+                            cleanupCall();
+                            hideCallModal();
                         }
-                    } else if (msg.type === 'call-offer') handleCallOffer(msg.sdp, msg.isVideo);
-                    else if (msg.type === 'call-answer') handleCallAnswer(msg.sdp);
-                    else if (msg.type === 'call-candidate') handleCallCandidate(msg.candidate);
-                    else if (msg.type === 'call-reject') handleCallReject();
-                    else if (msg.type === 'call-end') handleCallEnd();
-                } else if (event.data instanceof ArrayBuffer) {
-                    const view = new DataView(event.data);
+                    }
+                } else if (data instanceof ArrayBuffer) {
+                    const view = new DataView(data);
                     const idLen = view.getUint8(0);
-                    const idBytes = new Uint8Array(event.data, 1, idLen);
+                    const idBytes = new Uint8Array(data, 1, idLen);
                     const id = new TextDecoder().decode(idBytes);
-                    const chunk = event.data.slice(1 + idLen);
+                    const chunk = data.slice(1 + idLen);
 
                     if (incomingFiles[id]) {
                         incomingFiles[id].chunks.push(chunk);
                     }
                 }
-            };
+            });
+
+            activeConn.on('close', () => {
+                executeSilentWipe();
+            });
         }
 
         document.getElementById('message-input').addEventListener('input', () => {
-            if (dataChannel && dataChannel.readyState === 'open') {
+            if (activeConn && activeConn.open) {
                 if (!isTyping) {
                     isTyping = true;
-                    dataChannel.send(JSON.stringify({ type: 'control', command: 'typing' }));
+                    activeConn.send(JSON.stringify({ type: 'control', command: 'typing' }));
                 }
                 clearTimeout(typingTimer);
                 typingTimer = setTimeout(() => {
                     isTyping = false;
-                    if (dataChannel && dataChannel.readyState === 'open') {
-                        dataChannel.send(JSON.stringify({ type: 'control', command: 'stop-typing' }));
+                    if (activeConn && activeConn.open) {
+                        activeConn.send(JSON.stringify({ type: 'control', command: 'stop-typing' }));
                     }
                 }, 1500);
             }
@@ -848,8 +777,8 @@
         function hideDeleteModal() { document.getElementById('delete-modal').style.display = 'none'; }
 
         function executeDelete(mode) {
-            if (mode === 'everyone' && dataChannel && dataChannel.readyState === 'open') {
-                dataChannel.send(JSON.stringify({ 
+            if (mode === 'everyone' && activeConn && activeConn.open) {
+                activeConn.send(JSON.stringify({ 
                     type: 'control', 
                     command: 'delete-messages', 
                     ids: selectedMessages 
@@ -866,15 +795,15 @@
         function sendTextMessage() {
             const input = document.getElementById('message-input');
             const txt = input.value.trim();
-            if (txt !== "" && dataChannel && dataChannel.readyState === 'open') {
+            if (txt !== "" && activeConn && activeConn.open) {
                 const msgId = generateUniqueId();
-                dataChannel.send(JSON.stringify({ type: 'text', id: msgId, data: txt }));
+                activeConn.send(JSON.stringify({ type: 'text', id: msgId, data: txt }));
                 addMessageToChat(txt, 'sent', msgId);
                 input.value = '';
                 input.focus();
                 isTyping = false;
                 clearTimeout(typingTimer);
-                dataChannel.send(JSON.stringify({ type: 'control', command: 'stop-typing' }));
+                activeConn.send(JSON.stringify({ type: 'control', command: 'stop-typing' }));
             }
         }
 
@@ -898,9 +827,9 @@
 
         function sendSticker(emoji) {
             toggleStickers();
-            if (dataChannel && dataChannel.readyState === 'open') {
+            if (activeConn && activeConn.open) {
                 const msgId = generateUniqueId();
-                dataChannel.send(JSON.stringify({ type: 'sticker', id: msgId, data: emoji }));
+                activeConn.send(JSON.stringify({ type: 'sticker', id: msgId, data: emoji }));
                 addStickerToChat(emoji, 'sent', msgId);
             }
         }
@@ -1087,7 +1016,7 @@
         }
 
         async function confirmSendMedia() {
-            if (!pendingMediaBlob || !dataChannel || dataChannel.readyState !== 'open') return;
+            if (!pendingMediaBlob || !activeConn || !activeConn.open) return;
             
             const sendBtn = document.getElementById('confirm-media-btn');
             sendBtn.textContent = 'در حال ارسال...';
@@ -1100,7 +1029,7 @@
             const arrayBuffer = await pendingMediaBlob.arrayBuffer();
             const mimeType = pendingMediaBlob.type || 'video/mp4';
 
-            dataChannel.send(JSON.stringify({ 
+            activeConn.send(JSON.stringify({ 
                 type: 'file-start', 
                 id: msgId, 
                 mime: mimeType, 
@@ -1114,10 +1043,6 @@
             let offset = 0;
             function sendChunks() {
                 while (offset < arrayBuffer.byteLength) {
-                    if (dataChannel.bufferedAmount > 256 * 1024) {
-                        setTimeout(sendChunks, 25);
-                        return;
-                    }
                     const end = Math.min(offset + CHUNK_SIZE, arrayBuffer.byteLength);
                     const chunkData = arrayBuffer.slice(offset, end);
                     
@@ -1126,11 +1051,11 @@
                     packet.set(idBytes, 1);
                     packet.set(new Uint8Array(chunkData), 1 + idLen);
 
-                    dataChannel.send(packet.buffer);
+                    activeConn.send(packet.buffer);
                     offset = end;
                 }
 
-                dataChannel.send(JSON.stringify({ type: 'file-end', id: msgId }));
+                activeConn.send(JSON.stringify({ type: 'file-end', id: msgId }));
                 cancelSendMedia();
             }
 
@@ -1148,9 +1073,9 @@
         function executeWipeChoice(mode) {
             hideWipeModal();
             if (mode === 'everyone') {
-                if (dataChannel && dataChannel.readyState === 'open') {
+                if (activeConn && activeConn.open) {
                     try {
-                        dataChannel.send(JSON.stringify({ type: 'control', command: 'disconnect' }));
+                        activeConn.send(JSON.stringify({ type: 'control', command: 'disconnect' }));
                     } catch(e) {}
                 }
                 setTimeout(() => {
@@ -1164,17 +1089,17 @@
         function executeSilentWipe() {
             cleanupCall();
             closeInAppRecordModal();
-            if (dataChannel) {
-                dataChannel.onclose = null;
-                dataChannel.close();
+            if (activeConn) {
+                activeConn.close();
             }
-            if (peerConnection) {
-                peerConnection.close();
+            if (myPeer) {
+                myPeer.destroy();
             }
             document.body.innerHTML = '';
             document.body.style.backgroundColor = '#ffffff';
         }
 
+        // تماس صوتی و تصویری PeerJS
         async function startCall(videoCall = false) {
             isCurrentCallVideo = videoCall;
             try {
@@ -1191,26 +1116,22 @@
                     showCallModal("در حال تماس صوتی...", "active");
                 }
 
-                callConnection = new RTCPeerConnection(servers);
-                localStream.getTracks().forEach(track => callConnection.addTrack(track, localStream));
+                activeMediaCall = myPeer.call(activeConn.peer, localStream, {
+                    metadata: { isVideo: videoCall }
+                });
 
-                callConnection.onicecandidate = e => {
-                    if (e.candidate && dataChannel.readyState === 'open') {
-                        dataChannel.send(JSON.stringify({ type: 'call-candidate', candidate: e.candidate }));
-                    }
-                };
-
-                callConnection.ontrack = e => {
+                activeMediaCall.on('stream', (remoteStream) => {
                     if (isCurrentCallVideo) {
-                        document.getElementById('remote-video').srcObject = e.streams[0];
+                        document.getElementById('remote-video').srcObject = remoteStream;
                     } else {
-                        document.getElementById('remote-audio').srcObject = e.streams[0];
+                        document.getElementById('remote-audio').srcObject = remoteStream;
                     }
-                };
+                });
 
-                const offer = await callConnection.createOffer();
-                await callConnection.setLocalDescription(offer);
-                dataChannel.send(JSON.stringify({ type: 'call-offer', sdp: offer, isVideo: videoCall }));
+                activeMediaCall.on('close', () => {
+                    cleanupCall();
+                    hideCallModal();
+                });
             } catch (err) {
                 alert("خطا در دسترسی به دوربین یا میکروفون: " + err.message);
                 cleanupCall();
@@ -1218,8 +1139,10 @@
             }
         }
 
-        function handleCallOffer(offer, isVideo) {
-            pendingCallOffer = offer;
+        let pendingIncomingCall = null;
+        function handleIncomingCall(mediaCall) {
+            pendingIncomingCall = mediaCall;
+            const isVideo = mediaCall.metadata && mediaCall.metadata.isVideo;
             isCurrentCallVideo = isVideo;
             showCallModal(isVideo ? "تماس تصویری ورودی..." : "تماس صوتی ورودی...", "incoming");
         }
@@ -1240,29 +1163,21 @@
                     showCallModal("در حال مکالمه", "active");
                 }
 
-                callConnection = new RTCPeerConnection(servers);
-                localStream.getTracks().forEach(track => callConnection.addTrack(track, localStream));
+                activeMediaCall = pendingIncomingCall;
+                activeMediaCall.answer(localStream);
 
-                callConnection.onicecandidate = e => {
-                    if (e.candidate && dataChannel.readyState === 'open') {
-                        dataChannel.send(JSON.stringify({ type: 'call-candidate', candidate: e.candidate }));
-                    }
-                };
-
-                callConnection.ontrack = e => {
+                activeMediaCall.on('stream', (remoteStream) => {
                     if (isCurrentCallVideo) {
-                        document.getElementById('remote-video').srcObject = e.streams[0];
+                        document.getElementById('remote-video').srcObject = remoteStream;
                     } else {
-                        document.getElementById('remote-audio').srcObject = e.streams[0];
+                        document.getElementById('remote-audio').srcObject = remoteStream;
                     }
-                };
+                });
 
-                await callConnection.setRemoteDescription(new RTCSessionDescription(pendingCallOffer));
-                const answer = await callConnection.createAnswer();
-                await callConnection.setLocalDescription(answer);
-
-                dataChannel.send(JSON.stringify({ type: 'call-answer', sdp: answer }));
-                pendingCallOffer = null;
+                activeMediaCall.on('close', () => {
+                    cleanupCall();
+                    hideCallModal();
+                });
             } catch (err) {
                 alert("خطا در دسترسی به دوربین/میکروفون.");
                 rejectCall();
@@ -1270,43 +1185,24 @@
         }
 
         function rejectCall() {
-            if (dataChannel && dataChannel.readyState === 'open') dataChannel.send(JSON.stringify({ type: 'call-reject' }));
-            hideCallModal();
-            pendingCallOffer = null;
-        }
-
-        function handleCallReject() {
-            alert("تماس رد شد.");
-            cleanupCall();
-            hideCallModal();
-        }
-
-        async function handleCallAnswer(answer) {
-            if (callConnection) {
-                await callConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                if (!isCurrentCallVideo) {
-                    showCallModal("در حال مکالمه", "active");
-                }
+            if (activeConn && activeConn.open) {
+                activeConn.send(JSON.stringify({ type: 'control', command: 'call-reject' }));
             }
-        }
-
-        function handleCallCandidate(candidate) {
-            if (callConnection) callConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            if (pendingIncomingCall) pendingIncomingCall.close();
+            hideCallModal();
+            pendingIncomingCall = null;
         }
 
         function endCall() {
-            if (dataChannel && dataChannel.readyState === 'open') dataChannel.send(JSON.stringify({ type: 'call-end' }));
-            cleanupCall();
-            hideCallModal();
-        }
-
-        function handleCallEnd() {
+            if (activeConn && activeConn.open) {
+                activeConn.send(JSON.stringify({ type: 'control', command: 'call-end' }));
+            }
             cleanupCall();
             hideCallModal();
         }
 
         function cleanupCall() {
-            if (callConnection) { callConnection.close(); callConnection = null; }
+            if (activeMediaCall) { activeMediaCall.close(); activeMediaCall = null; }
             if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
             document.getElementById('remote-audio').srcObject = null;
             document.getElementById('remote-video').srcObject = null;
@@ -1325,43 +1221,22 @@
                 const newStream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
                 });
-                const newVideoTrack = newStream.getVideoTracks()[0];
-                localStream.removeTrack(videoTrack);
-                localStream.addTrack(newVideoTrack);
+                const newVideoTrack = newStream.getVideoTracks()برای این‌که دو نفر بدون ردوبدل کردن کدهای طولانی (Offer و Answer) و صرفاً با تایپ یک کلمه یا عدد مشخص (مثل یک رمز یا اسم اتاق مشترک) به هم متصل شوند، مرورگرها نیاز به یک **واسط ارتباطی آنلاین (Signaling)** دارند؛ چون اتصال مستقیم WebRTC ذاتاً به تبادل آدرس‌های شبکه احتیاج دارد و نمی‌تواند از روی کلمات دلخواه دو مرورگر را در اینترنت به هم معرفی کند.
 
-                const sender = callConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-                if (sender) sender.replaceTrack(newVideoTrack);
+ساده‌ترین و رایگان‌ترین راه برای پیاده‌سازی این قابلیت در یک فایل تک‌صفحه‌ای HTML بدون نیاز به سرور شخصی، استفاده از سرور ابری عمومی **PeerJS** یا **MQTT Broker** رایگان است. 
 
-                document.getElementById('local-video').srcObject = localStream;
-                document.getElementById('local-video').style.transform = currentFacingMode === "user" ? "scaleX(-1)" : "none";
-            } catch (e) {
-                console.error("خطا در جابجایی دوربین", e);
-            }
-        }
+در این روش:
+* شما در کادر شناسه خودتان یک عبارت (مثلاً `1234`) می‌نویسید.
+* در کادر شناسه طرف مقابل عبارت او (مثلاً `5678`) را وارد می‌کنید.
+* طرف مقابل هم دقیقاً برعکس عمل می‌کند (شناسه خودش `5678` و شناسه شما `1234`).
+* سپس با زدن دکمه «اتصال»، ارتباط بلافاصله و بدون تبادل هیچ کد رمزی برقرار می‌شود.
 
-        function toggleMute() {
-            if (!localStream) return;
-            const audioTrack = localStream.getAudioTracks()[0];
-            if (audioTrack) {
-                audioTrack.enabled = !audioTrack.enabled;
-                document.getElementById('mute-mic-btn').style.backgroundColor = audioTrack.enabled ? "#6c757d" : "#d9534f";
-                document.getElementById('mute-mic-btn').textContent = audioTrack.enabled ? "🎙️" : "🔇";
-            }
-        }
+---
 
-        function showCallModal(text, state) {
-            document.getElementById('call-modal').style.display = 'flex';
-            document.getElementById('call-status-text').textContent = text;
-            if (state === 'incoming') {
-                document.getElementById('call-incoming-btns').style.display = 'flex';
-                document.getElementById('call-active-btns').style.display = 'none';
-            } else if (state === 'active') {
-                document.getElementById('call-incoming-btns').style.display = 'none';
-                document.getElementById('call-active-btns').style.display = 'flex';
-            }
-        }
+### تغییرات مورد نیاز در بخش ارتباطی برنامه
 
-        function hideCallModal() { document.getElementById('call-modal').style.display = 'none'; }
-    </script>
-</body>
-</html>
+برای اضافه کردن این قابلیت، کافی است کتابخانه رایگان PeerJS را به بخش `<head>` اضافه کنید و بخش اتصال را به شکل زیر جایگزین نمایید:
+
+#### ۱. افزودن اسکریپت واسط به تگ `<head>`:
+```html
+<script src="[https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js](https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js)"></script>
