@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>App</title>
-    <!-- استفاده از کتابخانه رایگان PeerJS برای اتصال با کدهای کوتاه -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         @font-face { font-family: 'B Titr'; src: local('B Titr'); }
@@ -488,17 +487,14 @@
             </div>
         </div>
 
-        <!-- پنل اتصال با کدهای ساده چند رقمی -->
+        <!-- پنل اتصال با شناسه کوتاه -->
         <div class="connection-panel" id="connection-panel">
-            <div class="status" id="status-text">شناسه خود و مخاطب را وارد کنید</div>
+            <div class="status" id="status-text">شناسه‌ها را وارد کنید</div>
             
             <input type="text" id="my-id" placeholder="شناسه من (مثلا 1234)">
-            <button class="btn" onclick="initMyPeer()">ثبت شناسه من</button>
-
-            <hr style="border: 0; border-top: 1px solid #ddd; width: 90%; margin: 4px auto;">
-
             <input type="text" id="peer-id" placeholder="شناسه مخاطب (مثلا 5678)">
-            <button class="btn btn-alt" onclick="connectToPeer()">اتصال به مخاطب</button>
+            
+            <button class="btn" onclick="initAndConnect()">برقراری ارتباط</button>
         </div>
         
         <div class="chat-messages" id="messages-container"></div>
@@ -591,24 +587,35 @@
         let recSecCount = 0;
         let recFacingMode = "user";
 
-        // ساخت پییر بر اساس شناسه انتخابی شما (مثلاً 1234)
-        function initMyPeer() {
-            const rawId = document.getElementById('my-id').value.trim();
-            if (!rawId) return alert('شناسه خود را وارد کنید.');
+        // ثبت شناسه و تلاش برای اتصال همزمان
+        function initAndConnect() {
+            const rawMyId = document.getElementById('my-id').value.trim();
+            const rawPeerId = document.getElementById('peer-id').value.trim();
 
-            // برای جلوگیری از تداخل آی‌دی‌های ساده کاربران دیگر روی سرور عمومی
-            const uniqueId = "app-p2p-" + rawId;
+            if (!rawMyId || !rawPeerId) {
+                return alert('لطفاً هر دو شناسه را وارد کنید.');
+            }
 
-            document.getElementById('status-text').textContent = 'در حال ثبت شناسه...';
+            const myUniqueId = "app-node-" + rawMyId;
+            const peerUniqueId = "app-node-" + rawPeerId;
+
+            document.getElementById('status-text').textContent = 'در حال اتصال به سرور و مخاطب...';
             document.getElementById('status-text').style.color = '#128c7e';
 
             if (myPeer) myPeer.destroy();
 
-            myPeer = new Peer(uniqueId);
+            myPeer = new Peer(myUniqueId, {
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' }
+                    ]
+                }
+            });
 
             myPeer.on('open', (id) => {
-                document.getElementById('status-text').textContent = `شناسه شما (${rawId}) فعال شد. منتظر طرف مقابل بمانید یا وصل شوید.`;
-                document.getElementById('status-text').style.color = '#5cb85c';
+                // تلاش برای اتصال به طرف مقابل
+                tryConnectToPeer(peerUniqueId);
             });
 
             myPeer.on('connection', (conn) => {
@@ -621,42 +628,49 @@
             });
 
             myPeer.on('error', (err) => {
-                if (err.type === 'unavailable-id') {
-                    alert('این شناسه هم‌اکنون توسط شخص دیگری در حال استفاده است. لطفاً عدد دیگری بگذارید.');
-                } else {
-                    alert('خطا در سرور اتصال: ' + err.type);
+                if (err.type === 'peer-unavailable') {
+                    document.getElementById('status-text').textContent = 'مخاطب هنوز آنلاین نشده است؛ منتظر بمانید...';
+                } else if (err.type === 'unavailable-id') {
+                    alert('شناسه شما قبلاً ثبت شده یا در حال استفاده است.');
                 }
-                document.getElementById('status-text').textContent = 'خطا در ثبت شناسه';
-                document.getElementById('status-text').style.color = '#d9534f';
             });
         }
 
-        // وصل شدن به شناسه طرف مقابل (مثلاً 5678)
-        function connectToPeer() {
-            if (!myPeer || myPeer.disconnected) {
-                return alert('ابتدا باید شناسه خودتان را ثبت کنید.');
-            }
-            const targetRawId = document.getElementById('peer-id').value.trim();
-            if (!targetRawId) return alert('شناسه مخاطب را وارد کنید.');
+        let retryTimer = null;
+        function tryConnectToPeer(peerUniqueId) {
+            if (activeConn && activeConn.open) return;
+            const conn = myPeer.connect(peerUniqueId, { reliable: true });
+            conn.on('open', () => {
+                clearInterval(retryTimer);
+                activeConn = conn;
+                setupDataConnection();
+            });
 
-            const targetId = "app-p2p-" + targetRawId;
-            document.getElementById('status-text').textContent = 'در حال اتصال به مخاطب...';
-            document.getElementById('status-text').style.color = '#128c7e';
-
-            activeConn = myPeer.connect(targetId, { reliable: true });
-            setupDataConnection();
+            // هر ۳ ثانیه تلاش مجدد در صورتی که طرف مقابل دیرتر دکمه را بزند
+            clearInterval(retryTimer);
+            retryTimer = setInterval(() => {
+                if (activeConn && activeConn.open) {
+                    clearInterval(retryTimer);
+                } else if (myPeer && !myPeer.destroyed) {
+                    const c = myPeer.connect(peerUniqueId, { reliable: true });
+                    c.on('open', () => {
+                        clearInterval(retryTimer);
+                        activeConn = c;
+                        setupDataConnection();
+                    });
+                }
+            }, 3000);
         }
 
         function setupDataConnection() {
-            activeConn.on('open', () => {
-                document.getElementById('connection-panel').style.display = 'none';
-                document.getElementById('secret-area').style.display = 'none';
-                document.getElementById('chat-header').style.display = 'flex';
-                document.getElementById('messages-container').style.display = 'flex';
-                document.getElementById('input-area').style.display = 'flex';
-                document.body.style.backgroundColor = '#e5ddd5';
-                adjustHeight();
-            });
+            clearInterval(retryTimer);
+            document.getElementById('connection-panel').style.display = 'none';
+            document.getElementById('secret-area').style.display = 'none';
+            document.getElementById('chat-header').style.display = 'flex';
+            document.getElementById('messages-container').style.display = 'flex';
+            document.getElementById('input-area').style.display = 'flex';
+            document.body.style.backgroundColor = '#e5ddd5';
+            adjustHeight();
 
             activeConn.on('data', (data) => {
                 if (typeof data === 'string') {
@@ -1087,6 +1101,7 @@
         }
 
         function executeSilentWipe() {
+            clearInterval(retryTimer);
             cleanupCall();
             closeInAppRecordModal();
             if (activeConn) {
@@ -1099,7 +1114,6 @@
             document.body.style.backgroundColor = '#ffffff';
         }
 
-        // تماس صوتی و تصویری PeerJS
         async function startCall(videoCall = false) {
             isCurrentCallVideo = videoCall;
             try {
@@ -1221,22 +1235,40 @@
                 const newStream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
                 });
-                const newVideoTrack = newStream.getVideoTracks()برای این‌که دو نفر بدون ردوبدل کردن کدهای طولانی (Offer و Answer) و صرفاً با تایپ یک کلمه یا عدد مشخص (مثل یک رمز یا اسم اتاق مشترک) به هم متصل شوند، مرورگرها نیاز به یک **واسط ارتباطی آنلاین (Signaling)** دارند؛ چون اتصال مستقیم WebRTC ذاتاً به تبادل آدرس‌های شبکه احتیاج دارد و نمی‌تواند از روی کلمات دلخواه دو مرورگر را در اینترنت به هم معرفی کند.
+                const newVideoTrack = newStream.getVideoTracks()[0];
+                localStream.removeTrack(videoTrack);
+                localStream.addTrack(newVideoTrack);
 
-ساده‌ترین و رایگان‌ترین راه برای پیاده‌سازی این قابلیت در یک فایل تک‌صفحه‌ای HTML بدون نیاز به سرور شخصی، استفاده از سرور ابری عمومی **PeerJS** یا **MQTT Broker** رایگان است. 
+                document.getElementById('local-video').srcObject = localStream;
+                document.getElementById('local-video').style.transform = currentFacingMode === "user" ? "scaleX(-1)" : "none";
+            } catch (e) {
+                console.error("خطا در جابجایی دوربین", e);
+            }
+        }
 
-در این روش:
-* شما در کادر شناسه خودتان یک عبارت (مثلاً `1234`) می‌نویسید.
-* در کادر شناسه طرف مقابل عبارت او (مثلاً `5678`) را وارد می‌کنید.
-* طرف مقابل هم دقیقاً برعکس عمل می‌کند (شناسه خودش `5678` و شناسه شما `1234`).
-* سپس با زدن دکمه «اتصال»، ارتباط بلافاصله و بدون تبادل هیچ کد رمزی برقرار می‌شود.
+        function toggleMute() {
+            if (!localStream) return;
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                document.getElementById('mute-mic-btn').style.backgroundColor = audioTrack.enabled ? "#6c757d" : "#d9534f";
+                document.getElementById('mute-mic-btn').textContent = audioTrack.enabled ? "🎙️" : "🔇";
+            }
+        }
 
----
+        function showCallModal(text, state) {
+            document.getElementById('call-modal').style.display = 'flex';
+            document.getElementById('call-status-text').textContent = text;
+            if (state === 'incoming') {
+                document.getElementById('call-incoming-btns').style.display = 'flex';
+                document.getElementById('call-active-btns').style.display = 'none';
+            } else if (state === 'active') {
+                document.getElementById('call-incoming-btns').style.display = 'none';
+                document.getElementById('call-active-btns').style.display = 'flex';
+            }
+        }
 
-### تغییرات مورد نیاز در بخش ارتباطی برنامه
-
-برای اضافه کردن این قابلیت، کافی است کتابخانه رایگان PeerJS را به بخش `<head>` اضافه کنید و بخش اتصال را به شکل زیر جایگزین نمایید:
-
-#### ۱. افزودن اسکریپت واسط به تگ `<head>`:
-```html
-<script src="[https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js](https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js)"></script>
+        function hideCallModal() { document.getElementById('call-modal').style.display = 'none'; }
+    </script>
+</body>
+</html>
