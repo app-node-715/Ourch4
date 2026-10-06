@@ -127,7 +127,7 @@
         .connection-panel {
             background-color: #f9f9f9;
             padding: 20px 15px;
-            display: flex; /* نمایش مستقیم بدون نیاز به کلیک */
+            display: flex;
             flex-direction: column;
             gap: 10px;
             border-radius: 10px;
@@ -193,6 +193,13 @@
             box-shadow: 0 0 0 3px #0056b3;
         }
         
+        .edited-tag {
+            font-size: 10px;
+            color: #777;
+            margin-right: 6px;
+            font-style: italic;
+        }
+
         .message img, .message video {
             max-width: 100%;
             border-radius: 6px;
@@ -292,18 +299,26 @@
             position: absolute;
             bottom: 65px;
             left: 10px;
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            padding: 12px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
+            right: 10px;
+            background: #212d3b;
+            border: 1px solid #18222d;
+            border-radius: 12px;
+            padding: 12px 8px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+            grid-template-columns: repeat(8, 1fr);
+            gap: 12px 4px;
             z-index: 100;
-            max-height: 200px;
+            max-height: 260px;
             overflow-y: auto;
         }
-        .sticker-panel span { font-size: 28px; cursor: pointer; text-align: center; }
+        .sticker-panel span {
+            font-size: 26px;
+            cursor: pointer;
+            text-align: center;
+            user-select: none;
+            transition: transform 0.1s;
+        }
+        .sticker-panel span:active { transform: scale(1.3); }
 
         .modal-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -326,7 +341,7 @@
             font-family: 'B Titr', Tahoma, Arial, sans-serif;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            width: 250px;
+            width: 260px;
         }
 
         #in-app-record-video {
@@ -399,11 +414,23 @@
         <div class="action-bar" id="action-bar">
             <span id="selection-count">۱ پیام</span>
             <div class="header-btns">
+                <button class="icon-btn" id="edit-btn" onclick="showEditModal()" style="background-color: #0088cc;" title="ویرایش">✏️</button>
                 <button class="icon-btn" onclick="showDeleteModal()" style="background-color: #d9534f;" title="حذف">🗑</button>
                 <button class="icon-btn" onclick="clearSelection()" style="background-color: #6c757d;" title="لغو">❌</button>
             </div>
         </div>
         
+        <div id="edit-modal" class="modal-overlay">
+            <div class="call-content" style="background-color: #fff; color: #000; border: 2px solid #ddd; width: 280px;">
+                <h3 style="color:#0088cc; margin-top:0; margin-bottom: 12px; font-size: 16px;">ویرایش پیام</h3>
+                <input type="text" id="edit-input" style="width: 90%; padding: 8px; border-radius: 6px; border: 1px solid #ccc; font-family: 'B Nazanin'; font-size: 15px; outline: none; margin-bottom: 15px;">
+                <div class="btn-group">
+                    <button class="btn" style="background-color: #0088cc;" onclick="confirmEdit()">ذخیره</button>
+                    <button class="btn" style="background-color: #6c757d;" onclick="hideEditModal()">انصراف</button>
+                </div>
+            </div>
+        </div>
+
         <div id="delete-modal" class="modal-overlay">
             <div class="call-content" style="background-color: #fff; color: #000; border: 2px solid #ddd;">
                 <h3 style="color:#d9534f; margin-bottom: 20px;">حذف پیام</h3>
@@ -472,7 +499,6 @@
             </div>
         </div>
 
-        <!-- پنل اتصال فعال در بدو ورود -->
         <div class="connection-panel" id="connection-panel">
             <div class="status" id="status-text">در انتظار اتصال...</div>
             
@@ -492,15 +518,77 @@
         <div class="chat-messages" id="messages-container"></div>
         
         <div class="sticker-panel" id="sticker-panel">
+            <span onclick="sendSticker('😀')">😀</span>
+            <span onclick="sendSticker('😃')">😃</span>
+            <span onclick="sendSticker('😄')">😄</span>
+            <span onclick="sendSticker('😁')">😁</span>
+            <span onclick="sendSticker('😆')">😆</span>
+            <span onclick="sendSticker('🥹')">🥹</span>
+            <span onclick="sendSticker('😅')">😅</span>
+            <span onclick="sendSticker('😂')">😂</span>
+            <span onclick="sendSticker('🤣')">🤣</span>
+            <span onclick="sendSticker('🥲')">🥲</span>
+            <span onclick="sendSticker('☺️')">☺️</span>
+            <span onclick="sendSticker('😊')">😊</span>
+            <span onclick="sendSticker('😇')">😇</span>
+            <span onclick="sendSticker('🙂')">🙂</span>
+            <span onclick="sendSticker('🙃')">🙃</span>
+            <span onclick="sendSticker('😉')">😉</span>
+            <span onclick="sendSticker('😌')">😌</span>
+            <span onclick="sendSticker('😍')">😍</span>
+            <span onclick="sendSticker('🥰')">🥰</span>
+            <span onclick="sendSticker('😘')">😘</span>
+            <span onclick="sendSticker('😗')">😗</span>
+            <span onclick="sendSticker('😙')">😙</span>
+            <span onclick="sendSticker('😚')">😚</span>
+            <span onclick="sendSticker('😋')">😋</span>
+            <span onclick="sendSticker('😛')">😛</span>
+            <span onclick="sendSticker('😝')">😝</span>
+            <span onclick="sendSticker('😜')">😜</span>
+            <span onclick="sendSticker('🤪')">🤪</span>
+            <span onclick="sendSticker('🤨')">🤨</span>
+            <span onclick="sendSticker('🧐')">🧐</span>
+            <span onclick="sendSticker('🤓')">🤓</span>
+            <span onclick="sendSticker('😎')">😎</span>
+            <span onclick="sendSticker('🥸')">🥸</span>
+            <span onclick="sendSticker('🤩')">🤩</span>
+            <span onclick="sendSticker('🥳')">🥳</span>
+            <span onclick="sendSticker('😏')">😏</span>
+            <span onclick="sendSticker('😒')">😒</span>
+            <span onclick="sendSticker('😞')">😞</span>
+            <span onclick="sendSticker('😔')">😔</span>
+            <span onclick="sendSticker('😟')">😟</span>
+            <span onclick="sendSticker('😕')">😕</span>
+            <span onclick="sendSticker('🙁')">🙁</span>
+            <span onclick="sendSticker('☹️')">☹️</span>
+            <span onclick="sendSticker('😣')">😣</span>
+            <span onclick="sendSticker('😖')">😖</span>
+            <span onclick="sendSticker('😫')">😫</span>
+            <span onclick="sendSticker('😩')">😩</span>
+            <span onclick="sendSticker('🥺')">🥺</span>
+            <span onclick="sendSticker('😢')">😢</span>
+            <span onclick="sendSticker('😭')">😭</span>
+            <span onclick="sendSticker('😮‍💨')">😮‍💨</span>
+            <span onclick="sendSticker('😤')">😤</span>
+            <span onclick="sendSticker('😠')">😠</span>
+            <span onclick="sendSticker('😡')">😡</span>
+            <span onclick="sendSticker('🤬')">🤬</span>
+            <span onclick="sendSticker('🤯')">🤯</span>
+            <span onclick="sendSticker('😳')">😳</span>
+            <span onclick="sendSticker('🥵')">🥵</span>
+            <span onclick="sendSticker('🥶')">🥶</span>
+            <span onclick="sendSticker('😱')">😱</span>
+            <span onclick="sendSticker('😨')">😨</span>
+            <span onclick="sendSticker('😰')">😰</span>
+            <span onclick="sendSticker('😥')">😥</span>
+            <span onclick="sendSticker('😓')">😓</span>
+            <span onclick="sendSticker('🫣')">🫣</span>
+            <span onclick="sendSticker('🫢')">🫢</span>
+            <span onclick="sendSticker('🫡')">🫡</span>
+            <span onclick="sendSticker('🤫')">🤫</span>
+            <span onclick="sendSticker('🫠')">🫠</span>
             <span onclick="sendSticker('👍')">👍</span>
             <span onclick="sendSticker('❤️')">❤️</span>
-            <span onclick="sendSticker('😂')">😂</span>
-            <span onclick="sendSticker('😍')">😍</span>
-            <span onclick="sendSticker('🙏')">🙏</span>
-            <span onclick="sendSticker('🎉')">🎉</span>
-            <span onclick="sendSticker('🌹')">🌹</span>
-            <span onclick="sendSticker('💔')">💔</span>
-            <span onclick="sendSticker('👋')">👋</span>
             <span onclick="sendSticker('🔥')">🔥</span>
         </div>
 
@@ -553,6 +641,7 @@
         let selectedMessages = [];
         let typingTimer;
         let isTyping = false;
+        let heartbeatTimer = null;
 
         let recStream = null;
         let internalRecorder = null;
@@ -571,6 +660,32 @@
             ],
             iceCandidatePoolSize: 10
         };
+
+        // تابع استاندارد و بدون باگ برای درخواست دوربین و میکروفون
+        async function getSafeUserMedia(videoMode = false, audioMode = true) {
+            let constraints = {};
+            if (videoMode) {
+                constraints.video = {
+                    facingMode: currentFacingMode,
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                };
+            } else {
+                constraints.video = false;
+            }
+            constraints.audio = audioMode;
+
+            try {
+                return await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (err) {
+                // در صورت بروز خطا در قیدها، با ساده‌ترین حالت مجدد درخواست می‌دهد
+                console.warn("Retrying with simple media constraints:", err);
+                return await navigator.mediaDevices.getUserMedia({
+                    video: videoMode,
+                    audio: audioMode
+                });
+            }
+        }
 
         function copyMyCode() {
             const codeInput = document.getElementById('my-code');
@@ -694,10 +809,20 @@
             }
         }
 
+        function startHeartbeat() {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = setInterval(() => {
+                if (dataChannel && dataChannel.readyState === 'open') {
+                    dataChannel.send(JSON.stringify({ type: 'control', command: 'ping' }));
+                }
+            }, 10000);
+        }
+
         function setupDataChannel() {
             dataChannel.binaryType = 'arraybuffer';
             
             dataChannel.onopen = () => {
+                startHeartbeat();
                 document.getElementById('connection-panel').style.display = 'none';
                 document.getElementById('chat-header').style.display = 'flex';
                 document.getElementById('messages-container').style.display = 'flex';
@@ -706,7 +831,12 @@
                 adjustHeight();
             };
             
-            dataChannel.onclose = () => executeSilentWipe();
+            dataChannel.onclose = () => {
+                clearInterval(heartbeatTimer);
+                // به جای بستن اجباری تب، وضعیت قطع اتصال را اعلام می‌کند
+                document.getElementById('status-text').textContent = 'ارتباط قطع شد.';
+                document.getElementById('status-text').style.color = '#d9534f';
+            };
             
             dataChannel.onmessage = event => {
                 if (typeof event.data === 'string') {
@@ -715,6 +845,8 @@
                         addMessageToChat(msg.data, 'received', msg.id);
                     } else if (msg.type === 'sticker') {
                         addStickerToChat(msg.data, 'received', msg.id);
+                    } else if (msg.type === 'edit-text') {
+                        applyMessageEdit(msg.id, msg.newText);
                     } else if (msg.type === 'file-start') {
                         incomingFiles[msg.id] = {
                             mime: msg.mime,
@@ -742,6 +874,8 @@
                             document.getElementById('typing-indicator').style.display = 'block';
                         } else if (msg.command === 'stop-typing') {
                             document.getElementById('typing-indicator').style.display = 'none';
+                        } else if (msg.command === 'ping') {
+                            // پالس فعال ماندن
                         }
                     } else if (msg.type === 'call-offer') handleCallOffer(msg.sdp, msg.isVideo);
                     else if (msg.type === 'call-answer') handleCallAnswer(msg.sdp);
@@ -799,9 +933,21 @@
 
         function updateActionBar() {
             const bar = document.getElementById('action-bar');
+            const editBtn = document.getElementById('edit-btn');
             if (selectedMessages.length > 0) {
                 bar.style.display = 'flex';
                 document.getElementById('selection-count').textContent = selectedMessages.length + ' پیام';
+                
+                if (selectedMessages.length === 1) {
+                    const el = document.querySelector(`[data-msg-id="${selectedMessages[0]}"]`);
+                    if (el && el.getAttribute('data-is-text') === 'true') {
+                        editBtn.style.display = 'flex';
+                    } else {
+                        editBtn.style.display = 'none';
+                    }
+                } else {
+                    editBtn.style.display = 'none';
+                }
             } else {
                 bar.style.display = 'none';
             }
@@ -814,6 +960,57 @@
             });
             selectedMessages = [];
             updateActionBar();
+        }
+
+        function showEditModal() {
+            if (selectedMessages.length !== 1) return;
+            const msgId = selectedMessages[0];
+            const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+            if (!el) return;
+            
+            const textSpan = el.querySelector('.msg-text-content');
+            document.getElementById('edit-input').value = textSpan ? textSpan.textContent : '';
+            document.getElementById('edit-modal').style.display = 'flex';
+        }
+
+        function hideEditModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        function confirmEdit() {
+            if (selectedMessages.length !== 1) return;
+            const msgId = selectedMessages[0];
+            const newText = document.getElementById('edit-input').value.trim();
+            if (!newText) return;
+
+            applyMessageEdit(msgId, newText);
+
+            if (dataChannel && dataChannel.readyState === 'open') {
+                dataChannel.send(JSON.stringify({
+                    type: 'edit-text',
+                    id: msgId,
+                    newText: newText
+                }));
+            }
+
+            hideEditModal();
+            clearSelection();
+        }
+
+        function applyMessageEdit(msgId, newText) {
+            const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+            if (el) {
+                let textSpan = el.querySelector('.msg-text-content');
+                if (textSpan) {
+                    textSpan.textContent = newText;
+                }
+                if (!el.querySelector('.edited-tag')) {
+                    const tag = document.createElement('span');
+                    tag.className = 'edited-tag';
+                    tag.textContent = ' (ویرایش شده)';
+                    el.appendChild(tag);
+                }
+            }
         }
 
         function showDeleteModal() { document.getElementById('delete-modal').style.display = 'flex'; }
@@ -856,8 +1053,14 @@
             const container = document.getElementById('messages-container');
             const div = document.createElement('div');
             div.classList.add('message', type);
-            div.textContent = text;
+            div.setAttribute('data-is-text', 'true');
             if(msgId) div.setAttribute('data-msg-id', msgId);
+            
+            const span = document.createElement('span');
+            span.className = 'msg-text-content';
+            span.textContent = text;
+            div.appendChild(span);
+
             div.onclick = (e) => toggleSelection(msgId, e);
             container.appendChild(div);
             setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
@@ -932,7 +1135,7 @@
                 document.getElementById('stop-rec-btn').style.display = 'none';
                 document.getElementById('rec-timer').style.display = 'none';
             } catch (err) {
-                alert("دسترسی به دوربین یا میکروفون امکان‌پذیر نشد: " + err.message);
+                alert("دسترسی به دوربین یا میکروفون امکان‌پذیر نشد:\n" + err.message + "\n\nلطفاً از تنظیمات مرورگر دسترسی دوربین و میکروفون را روی Allow بگذارید.");
             }
         }
 
@@ -940,10 +1143,7 @@
             if (recStream) {
                 recStream.getTracks().forEach(t => t.stop());
             }
-            recStream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 20 }, facingMode: facing },
-                audio: true
-            });
+            recStream = await getSafeUserMedia(true, true);
             const v = document.getElementById('in-app-record-video');
             v.srcObject = recStream;
             v.style.transform = (facing === "user") ? "scaleX(-1)" : "none";
@@ -951,6 +1151,7 @@
 
         async function switchRecordCamera() {
             recFacingMode = (recFacingMode === "user") ? "environment" : "user";
+            currentFacingMode = recFacingMode;
             await initRecordCamera(recFacingMode);
         }
 
@@ -1134,6 +1335,7 @@
         }
 
         function executeSilentWipe() {
+            clearInterval(heartbeatTimer);
             cleanupCall();
             closeInAppRecordModal();
             if (dataChannel) {
@@ -1150,11 +1352,7 @@
         async function startCall(videoCall = false) {
             isCurrentCallVideo = videoCall;
             try {
-                const constraints = {
-                    audio: true,
-                    video: videoCall ? { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } } : false
-                };
-                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localStream = await getSafeUserMedia(videoCall, true);
 
                 if (videoCall) {
                     document.getElementById('local-video').srcObject = localStream;
@@ -1184,7 +1382,7 @@
                 await callConnection.setLocalDescription(offer);
                 dataChannel.send(JSON.stringify({ type: 'call-offer', sdp: offer, isVideo: videoCall }));
             } catch (err) {
-                alert("خطا در دسترسی به دوربین یا میکروفون: " + err.message);
+                alert("خطا در دسترسی به دوربین یا میکروفون:\n" + err.message + "\n\nلطفاً دسترسی را در تنظیمات مرورگر تأیید کنید.");
                 cleanupCall();
                 hideCallModal();
             }
@@ -1198,11 +1396,7 @@
 
         async function acceptCall() {
             try {
-                const constraints = {
-                    audio: true,
-                    video: isCurrentCallVideo ? { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } } : false
-                };
-                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localStream = await getSafeUserMedia(isCurrentCallVideo, true);
                 hideCallModal();
 
                 if (isCurrentCallVideo) {
@@ -1236,7 +1430,7 @@
                 dataChannel.send(JSON.stringify({ type: 'call-answer', sdp: answer }));
                 pendingCallOffer = null;
             } catch (err) {
-                alert("خطا در دسترسی به دوربین/میکروفون.");
+                alert("خطا در دسترسی به دوربین/میکروفون:\n" + err.message);
                 rejectCall();
             }
         }
@@ -1294,9 +1488,7 @@
             if (videoTrack) videoTrack.stop();
 
             try {
-                const newStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
-                });
+                const newStream = await getSafeUserMedia(true, false);
                 const newVideoTrack = newStream.getVideoTracks()[0];
                 localStream.removeTrack(videoTrack);
                 localStream.addTrack(newVideoTrack);
