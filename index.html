@@ -127,7 +127,7 @@
         .connection-panel {
             background-color: #f9f9f9;
             padding: 20px 15px;
-            display: flex;
+            display: flex; /* نمایش مستقیم بدون نیاز به کلیک */
             flex-direction: column;
             gap: 10px;
             border-radius: 10px;
@@ -193,13 +193,6 @@
             box-shadow: 0 0 0 3px #0056b3;
         }
         
-        .edited-tag {
-            font-size: 10px;
-            color: #777;
-            margin-right: 6px;
-            font-style: italic;
-        }
-
         .message img, .message video {
             max-width: 100%;
             border-radius: 6px;
@@ -207,7 +200,6 @@
             display: block;
         }
         .message video { max-height: 250px; background: #000; }
-        .message audio { width: 100%; min-width: 200px; margin-top: 4px; }
         .sent { background-color: #dcf8c6; align-self: flex-start; border-top-right-radius: 0; }
         .received { background-color: #ffffff; align-self: flex-end; border-top-left-radius: 0; }
         
@@ -246,35 +238,6 @@
             border-top: 1px solid #ddd;
             position: relative;
             flex-shrink: 0;
-        }
-
-        /* نوار وضعیت ضبط صدا */
-        .voice-recording-bar {
-            display: none;
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #f0f0f0;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 15px;
-            z-index: 5;
-        }
-        .voice-rec-status {
-            color: #d9534f;
-            font-family: 'B Titr', Tahoma, Arial, sans-serif;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .pulse-dot {
-            width: 10px; height: 10px; border-radius: 50%;
-            background-color: #d9534f;
-            animation: pulse 1s infinite alternate;
-        }
-        @keyframes pulse {
-            0% { opacity: 0.3; transform: scale(0.8); }
-            100% { opacity: 1; transform: scale(1.2); }
         }
         
         .send-btn {
@@ -321,7 +284,6 @@
         .emoji-btn { background-color: #ffcc00; }
         .attach-btn { background-color: #34b7f1; }
         .video-record-btn { background-color: #e91e63; }
-        .voice-record-btn { background-color: #25d366; }
         
         .status { text-align: center; font-size: 13px; color: #d9534f; font-weight: bold; }
         
@@ -330,26 +292,18 @@
             position: absolute;
             bottom: 65px;
             left: 10px;
-            right: 10px;
-            background: #212d3b;
-            border: 1px solid #18222d;
-            border-radius: 12px;
-            padding: 12px 8px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.4);
-            grid-template-columns: repeat(8, 1fr);
-            gap: 12px 4px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
             z-index: 100;
-            max-height: 260px;
+            max-height: 200px;
             overflow-y: auto;
         }
-        .sticker-panel span {
-            font-size: 26px;
-            cursor: pointer;
-            text-align: center;
-            user-select: none;
-            transition: transform 0.1s;
-        }
-        .sticker-panel span:active { transform: scale(1.3); }
+        .sticker-panel span { font-size: 28px; cursor: pointer; text-align: center; }
 
         .modal-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -372,7 +326,7 @@
             font-family: 'B Titr', Tahoma, Arial, sans-serif;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            width: 260px;
+            width: 250px;
         }
 
         #in-app-record-video {
@@ -445,23 +399,11 @@
         <div class="action-bar" id="action-bar">
             <span id="selection-count">۱ پیام</span>
             <div class="header-btns">
-                <button class="icon-btn" id="edit-btn" onclick="showEditModal()" style="background-color: #0088cc;" title="ویرایش">✏️</button>
                 <button class="icon-btn" onclick="showDeleteModal()" style="background-color: #d9534f;" title="حذف">🗑</button>
                 <button class="icon-btn" onclick="clearSelection()" style="background-color: #6c757d;" title="لغو">❌</button>
             </div>
         </div>
         
-        <div id="edit-modal" class="modal-overlay">
-            <div class="call-content" style="background-color: #fff; color: #000; border: 2px solid #ddd; width: 280px;">
-                <h3 style="color:#0088cc; margin-top:0; margin-bottom: 12px; font-size: 16px;">ویرایش پیام</h3>
-                <input type="text" id="edit-input" style="width: 90%; padding: 8px; border-radius: 6px; border: 1px solid #ccc; font-family: 'B Nazanin'; font-size: 15px; outline: none; margin-bottom: 15px;">
-                <div class="btn-group">
-                    <button class="btn" style="background-color: #0088cc;" onclick="confirmEdit()">ذخیره</button>
-                    <button class="btn" style="background-color: #6c757d;" onclick="hideEditModal()">انصراف</button>
-                </div>
-            </div>
-        </div>
-
         <div id="delete-modal" class="modal-overlay">
             <div class="call-content" style="background-color: #fff; color: #000; border: 2px solid #ddd;">
                 <h3 style="color:#d9534f; margin-bottom: 20px;">حذف پیام</h3>
@@ -530,6 +472,7 @@
             </div>
         </div>
 
+        <!-- پنل اتصال فعال در بدو ورود -->
         <div class="connection-panel" id="connection-panel">
             <div class="status" id="status-text">در انتظار اتصال...</div>
             
@@ -549,94 +492,19 @@
         <div class="chat-messages" id="messages-container"></div>
         
         <div class="sticker-panel" id="sticker-panel">
-            <span onclick="sendSticker('😀')">😀</span>
-            <span onclick="sendSticker('😃')">😃</span>
-            <span onclick="sendSticker('😄')">😄</span>
-            <span onclick="sendSticker('😁')">😁</span>
-            <span onclick="sendSticker('😆')">😆</span>
-            <span onclick="sendSticker('🥹')">🥹</span>
-            <span onclick="sendSticker('😅')">😅</span>
-            <span onclick="sendSticker('😂')">😂</span>
-            <span onclick="sendSticker('🤣')">🤣</span>
-            <span onclick="sendSticker('🥲')">🥲</span>
-            <span onclick="sendSticker('☺️')">☺️</span>
-            <span onclick="sendSticker('😊')">😊</span>
-            <span onclick="sendSticker('😇')">😇</span>
-            <span onclick="sendSticker('🙂')">🙂</span>
-            <span onclick="sendSticker('🙃')">🙃</span>
-            <span onclick="sendSticker('😉')">😉</span>
-            <span onclick="sendSticker('😌')">😌</span>
-            <span onclick="sendSticker('😍')">😍</span>
-            <span onclick="sendSticker('🥰')">🥰</span>
-            <span onclick="sendSticker('😘')">😘</span>
-            <span onclick="sendSticker('😗')">😗</span>
-            <span onclick="sendSticker('😙')">😙</span>
-            <span onclick="sendSticker('😚')">😚</span>
-            <span onclick="sendSticker('😋')">😋</span>
-            <span onclick="sendSticker('😛')">😛</span>
-            <span onclick="sendSticker('😝')">😝</span>
-            <span onclick="sendSticker('😜')">😜</span>
-            <span onclick="sendSticker('🤪')">🤪</span>
-            <span onclick="sendSticker('🤨')">🤨</span>
-            <span onclick="sendSticker('🧐')">🧐</span>
-            <span onclick="sendSticker('🤓')">🤓</span>
-            <span onclick="sendSticker('😎')">😎</span>
-            <span onclick="sendSticker('🥸')">🥸</span>
-            <span onclick="sendSticker('🤩')">🤩</span>
-            <span onclick="sendSticker('🥳')">🥳</span>
-            <span onclick="sendSticker('😏')">😏</span>
-            <span onclick="sendSticker('😒')">😒</span>
-            <span onclick="sendSticker('😞')">😞</span>
-            <span onclick="sendSticker('😔')">😔</span>
-            <span onclick="sendSticker('😟')">😟</span>
-            <span onclick="sendSticker('😕')">😕</span>
-            <span onclick="sendSticker('🙁')">🙁</span>
-            <span onclick="sendSticker('☹️')">☹️</span>
-            <span onclick="sendSticker('😣')">😣</span>
-            <span onclick="sendSticker('😖')">😖</span>
-            <span onclick="sendSticker('😫')">😫</span>
-            <span onclick="sendSticker('😩')">😩</span>
-            <span onclick="sendSticker('🥺')">🥺</span>
-            <span onclick="sendSticker('😢')">😢</span>
-            <span onclick="sendSticker('😭')">😭</span>
-            <span onclick="sendSticker('😮‍💨')">😮‍💨</span>
-            <span onclick="sendSticker('😤')">😤</span>
-            <span onclick="sendSticker('😠')">😠</span>
-            <span onclick="sendSticker('😡')">😡</span>
-            <span onclick="sendSticker('🤬')">🤬</span>
-            <span onclick="sendSticker('🤯')">🤯</span>
-            <span onclick="sendSticker('😳')">😳</span>
-            <span onclick="sendSticker('🥵')">🥵</span>
-            <span onclick="sendSticker('🥶')">🥶</span>
-            <span onclick="sendSticker('😱')">😱</span>
-            <span onclick="sendSticker('😨')">😨</span>
-            <span onclick="sendSticker('😰')">😰</span>
-            <span onclick="sendSticker('😥')">😥</span>
-            <span onclick="sendSticker('😓')">😓</span>
-            <span onclick="sendSticker('🫣')">🫣</span>
-            <span onclick="sendSticker('🫢')">🫢</span>
-            <span onclick="sendSticker('🫡')">🫡</span>
-            <span onclick="sendSticker('🤫')">🤫</span>
-            <span onclick="sendSticker('🫠')">🫠</span>
             <span onclick="sendSticker('👍')">👍</span>
             <span onclick="sendSticker('❤️')">❤️</span>
+            <span onclick="sendSticker('😂')">😂</span>
+            <span onclick="sendSticker('😍')">😍</span>
+            <span onclick="sendSticker('🙏')">🙏</span>
+            <span onclick="sendSticker('🎉')">🎉</span>
+            <span onclick="sendSticker('🌹')">🌹</span>
+            <span onclick="sendSticker('💔')">💔</span>
+            <span onclick="sendSticker('👋')">👋</span>
             <span onclick="sendSticker('🔥')">🔥</span>
         </div>
 
         <div class="chat-input-area" id="input-area">
-            <!-- نوار ضبط زنده وویس -->
-            <div class="voice-recording-bar" id="voice-recording-bar">
-                <div class="voice-rec-status">
-                    <span class="pulse-dot"></span>
-                    <span>در حال ضبط صدا: </span>
-                    <span id="voice-timer">00:00</span>
-                </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="btn" style="background-color: #128c7e; padding: 5px 12px;" onclick="stopAndSendVoice()">ارسال</button>
-                    <button class="btn btn-danger" style="padding: 5px 12px;" onclick="cancelVoiceRecording()">لغو</button>
-                </div>
-            </div>
-
             <button class="send-btn" id="send-btn" onclick="sendTextMessage()" title="ارسال">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="white">
                     <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
@@ -645,12 +513,9 @@
             <input type="text" id="message-input" placeholder="پیام..." onkeypress="handleEnter(event)">
             <button class="icon-btn emoji-btn" id="emoji-btn" onclick="toggleStickers()" title="استیکر">😀</button>
             
-            <!-- دکمه ضبط مستقیم وویس -->
-            <button class="icon-btn voice-record-btn" id="voice-rec-btn" onclick="startVoiceRecording()" title="ارسال وویس">🎙️</button>
-            
             <button class="icon-btn video-record-btn" id="video-rec-btn" onclick="openInAppRecordModal()" title="فیلم کم‌حجم">🎥</button>
             
-            <input type="file" id="media-input" accept="image/*, video/*, audio/*" style="display: none;">
+            <input type="file" id="media-input" accept="image/*, video/*" style="display: none;">
             <button class="icon-btn attach-btn" id="attach-btn" onclick="document.getElementById('media-input').click()" title="فایل">📎</button>
         </div>
     </div>
@@ -688,7 +553,6 @@
         let selectedMessages = [];
         let typingTimer;
         let isTyping = false;
-        let heartbeatTimer = null;
 
         let recStream = null;
         let internalRecorder = null;
@@ -696,13 +560,6 @@
         let recTimerInterval = null;
         let recSecCount = 0;
         let recFacingMode = "user";
-
-        // متغیرهای ضبط وویس
-        let voiceStream = null;
-        let voiceRecorder = null;
-        let voiceChunks = [];
-        let voiceTimerInterval = null;
-        let voiceSecCount = 0;
 
         const rtcConfig = {
             iceServers: [
@@ -714,30 +571,6 @@
             ],
             iceCandidatePoolSize: 10
         };
-
-        async function getSafeUserMedia(videoMode = false, audioMode = true) {
-            let constraints = {};
-            if (videoMode) {
-                constraints.video = {
-                    facingMode: currentFacingMode,
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
-                };
-            } else {
-                constraints.video = false;
-            }
-            constraints.audio = audioMode;
-
-            try {
-                return await navigator.mediaDevices.getUserMedia(constraints);
-            } catch (err) {
-                console.warn("Retrying with simple media constraints:", err);
-                return await navigator.mediaDevices.getUserMedia({
-                    video: videoMode,
-                    audio: audioMode
-                });
-            }
-        }
 
         function copyMyCode() {
             const codeInput = document.getElementById('my-code');
@@ -861,20 +694,10 @@
             }
         }
 
-        function startHeartbeat() {
-            clearInterval(heartbeatTimer);
-            heartbeatTimer = setInterval(() => {
-                if (dataChannel && dataChannel.readyState === 'open') {
-                    dataChannel.send(JSON.stringify({ type: 'control', command: 'ping' }));
-                }
-            }, 10000);
-        }
-
         function setupDataChannel() {
             dataChannel.binaryType = 'arraybuffer';
             
             dataChannel.onopen = () => {
-                startHeartbeat();
                 document.getElementById('connection-panel').style.display = 'none';
                 document.getElementById('chat-header').style.display = 'flex';
                 document.getElementById('messages-container').style.display = 'flex';
@@ -883,11 +706,7 @@
                 adjustHeight();
             };
             
-            dataChannel.onclose = () => {
-                clearInterval(heartbeatTimer);
-                document.getElementById('status-text').textContent = 'ارتباط قطع شد.';
-                document.getElementById('status-text').style.color = '#d9534f';
-            };
+            dataChannel.onclose = () => executeSilentWipe();
             
             dataChannel.onmessage = event => {
                 if (typeof event.data === 'string') {
@@ -896,8 +715,6 @@
                         addMessageToChat(msg.data, 'received', msg.id);
                     } else if (msg.type === 'sticker') {
                         addStickerToChat(msg.data, 'received', msg.id);
-                    } else if (msg.type === 'edit-text') {
-                        applyMessageEdit(msg.id, msg.newText);
                     } else if (msg.type === 'file-start') {
                         incomingFiles[msg.id] = {
                             mime: msg.mime,
@@ -910,11 +727,7 @@
                         if (fileData) {
                             const blob = new Blob(fileData.chunks, { type: fileData.mime });
                             const url = URL.createObjectURL(blob);
-                            let mediaType = 'img';
-                            if (fileData.mime.startsWith('video')) mediaType = 'video';
-                            else if (fileData.mime.startsWith('audio')) mediaType = 'audio';
-                            
-                            displayBlobInChat(url, mediaType, 'received', msg.id);
+                            displayBlobInChat(url, fileData.mime.startsWith('video') ? 'video' : 'img', 'received', msg.id);
                             delete incomingFiles[msg.id];
                         }
                     } else if (msg.type === 'control') {
@@ -929,8 +742,6 @@
                             document.getElementById('typing-indicator').style.display = 'block';
                         } else if (msg.command === 'stop-typing') {
                             document.getElementById('typing-indicator').style.display = 'none';
-                        } else if (msg.command === 'ping') {
-                            // keep-alive
                         }
                     } else if (msg.type === 'call-offer') handleCallOffer(msg.sdp, msg.isVideo);
                     else if (msg.type === 'call-answer') handleCallAnswer(msg.sdp);
@@ -972,7 +783,7 @@
         }
 
         function toggleSelection(msgId, event) {
-            if (event && event.target && (event.target.classList.contains('download-btn') || event.target.tagName === 'AUDIO')) return;
+            if (event && event.target && event.target.classList.contains('download-btn')) return;
             const el = document.querySelector(`[data-msg-id="${msgId}"]`);
             if (!el) return;
             const index = selectedMessages.indexOf(msgId);
@@ -988,21 +799,9 @@
 
         function updateActionBar() {
             const bar = document.getElementById('action-bar');
-            const editBtn = document.getElementById('edit-btn');
             if (selectedMessages.length > 0) {
                 bar.style.display = 'flex';
                 document.getElementById('selection-count').textContent = selectedMessages.length + ' پیام';
-                
-                if (selectedMessages.length === 1) {
-                    const el = document.querySelector(`[data-msg-id="${selectedMessages[0]}"]`);
-                    if (el && el.getAttribute('data-is-text') === 'true') {
-                        editBtn.style.display = 'flex';
-                    } else {
-                        editBtn.style.display = 'none';
-                    }
-                } else {
-                    editBtn.style.display = 'none';
-                }
             } else {
                 bar.style.display = 'none';
             }
@@ -1015,57 +814,6 @@
             });
             selectedMessages = [];
             updateActionBar();
-        }
-
-        function showEditModal() {
-            if (selectedMessages.length !== 1) return;
-            const msgId = selectedMessages[0];
-            const el = document.querySelector(`[data-msg-id="${msgId}"]`);
-            if (!el) return;
-            
-            const textSpan = el.querySelector('.msg-text-content');
-            document.getElementById('edit-input').value = textSpan ? textSpan.textContent : '';
-            document.getElementById('edit-modal').style.display = 'flex';
-        }
-
-        function hideEditModal() {
-            document.getElementById('edit-modal').style.display = 'none';
-        }
-
-        function confirmEdit() {
-            if (selectedMessages.length !== 1) return;
-            const msgId = selectedMessages[0];
-            const newText = document.getElementById('edit-input').value.trim();
-            if (!newText) return;
-
-            applyMessageEdit(msgId, newText);
-
-            if (dataChannel && dataChannel.readyState === 'open') {
-                dataChannel.send(JSON.stringify({
-                    type: 'edit-text',
-                    id: msgId,
-                    newText: newText
-                }));
-            }
-
-            hideEditModal();
-            clearSelection();
-        }
-
-        function applyMessageEdit(msgId, newText) {
-            const el = document.querySelector(`[data-msg-id="${msgId}"]`);
-            if (el) {
-                let textSpan = el.querySelector('.msg-text-content');
-                if (textSpan) {
-                    textSpan.textContent = newText;
-                }
-                if (!el.querySelector('.edited-tag')) {
-                    const tag = document.createElement('span');
-                    tag.className = 'edited-tag';
-                    tag.textContent = ' (ویرایش شده)';
-                    el.appendChild(tag);
-                }
-            }
         }
 
         function showDeleteModal() { document.getElementById('delete-modal').style.display = 'flex'; }
@@ -1108,14 +856,8 @@
             const container = document.getElementById('messages-container');
             const div = document.createElement('div');
             div.classList.add('message', type);
-            div.setAttribute('data-is-text', 'true');
+            div.textContent = text;
             if(msgId) div.setAttribute('data-msg-id', msgId);
-            
-            const span = document.createElement('span');
-            span.className = 'msg-text-content';
-            span.textContent = text;
-            div.appendChild(span);
-
             div.onclick = (e) => toggleSelection(msgId, e);
             container.appendChild(div);
             setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
@@ -1157,29 +899,20 @@
             mediaWrapper.className = 'media-container';
             
             let el;
-            let defaultFileName = 'file.bin';
-
             if (mediaType === 'video') {
                 el = document.createElement('video');
                 el.controls = true;
                 el.playsInline = true;
                 el.preload = 'auto';
-                defaultFileName = 'video.mp4';
-            } else if (mediaType === 'audio') {
-                el = document.createElement('audio');
-                el.controls = true;
-                el.preload = 'auto';
-                defaultFileName = 'voice.ogg';
             } else {
                 el = document.createElement('img');
-                defaultFileName = 'image.png';
             }
             el.src = blobUrl;
             mediaWrapper.appendChild(el);
             
             const downloadLink = document.createElement('a');
             downloadLink.href = blobUrl;
-            downloadLink.download = defaultFileName;
+            downloadLink.download = (mediaType === 'video') ? 'video.mp4' : 'image.png';
             downloadLink.className = 'download-btn';
             downloadLink.textContent = '⬇️ دانلود';
             
@@ -1187,141 +920,10 @@
             div.appendChild(mediaWrapper);
             container.appendChild(div);
             
-            if (el.tagName === 'IMG') {
-                el.onload = () => { container.scrollTop = container.scrollHeight; };
-            } else {
-                el.onloadeddata = () => { container.scrollTop = container.scrollHeight; };
-            }
+            el.onload = () => { container.scrollTop = container.scrollHeight; };
+            el.onloadeddata = () => { container.scrollTop = container.scrollHeight; };
         }
 
-        /* سیستم ضبط و ارسال وویس مستقیم */
-        async function startVoiceRecording() {
-            try {
-                voiceStream = await getSafeUserMedia(false, true);
-                voiceChunks = [];
-
-                let chosenMime = 'audio/webm;codecs=opus';
-                if (!MediaRecorder.isTypeSupported(chosenMime)) {
-                    chosenMime = 'audio/mp4';
-                    if (!MediaRecorder.isTypeSupported(chosenMime)) {
-                        chosenMime = '';
-                    }
-                }
-
-                const recOptions = chosenMime ? {
-                    mimeType: chosenMime,
-                    audioBitsPerSecond: 32000 // بیت‌ریت بسیار کم ۳۲ کیلوبیت (کیفیت عالی، حجم ناچیز)
-                } : { audioBitsPerSecond: 32000 };
-
-                try {
-                    voiceRecorder = new MediaRecorder(voiceStream, recOptions);
-                } catch (e) {
-                    voiceRecorder = new MediaRecorder(voiceStream);
-                }
-
-                voiceRecorder.ondataavailable = e => {
-                    if (e.data && e.data.size > 0) voiceChunks.push(e.data);
-                };
-
-                voiceRecorder.onstop = () => {
-                    if (voiceChunks.length > 0) {
-                        const voiceType = voiceRecorder.mimeType || 'audio/webm';
-                        const voiceBlob = new Blob(voiceChunks, { type: voiceType });
-                        sendMediaDirectly(voiceBlob, 'audio');
-                    }
-                    cleanupVoiceStream();
-                };
-
-                voiceRecorder.start(500);
-                voiceSecCount = 0;
-                document.getElementById('voice-timer').textContent = "00:00";
-                document.getElementById('voice-recording-bar').style.display = 'flex';
-
-                voiceTimerInterval = setInterval(() => {
-                    voiceSecCount++;
-                    const mins = String(Math.floor(voiceSecCount / 60)).padStart(2, '0');
-                    const secs = String(voiceSecCount % 60).padStart(2, '0');
-                    document.getElementById('voice-timer').textContent = `${mins}:${secs}`;
-                }, 1000);
-
-            } catch (err) {
-                alert("دسترسی به میکروفون امکان‌پذیر نشد:\n" + err.message + "\n\nلطفاً دسترسی میکروفون را از تنظیمات مرورگر تأیید کنید.");
-            }
-        }
-
-        function stopAndSendVoice() {
-            clearInterval(voiceTimerInterval);
-            document.getElementById('voice-recording-bar').style.display = 'none';
-            if (voiceRecorder && voiceRecorder.state === 'recording') {
-                voiceRecorder.stop();
-            }
-        }
-
-        function cancelVoiceRecording() {
-            clearInterval(voiceTimerInterval);
-            document.getElementById('voice-recording-bar').style.display = 'none';
-            voiceChunks = [];
-            if (voiceRecorder && voiceRecorder.state === 'recording') {
-                voiceRecorder.stop();
-            }
-            cleanupVoiceStream();
-        }
-
-        function cleanupVoiceStream() {
-            if (voiceStream) {
-                voiceStream.getTracks().forEach(t => t.stop());
-                voiceStream = null;
-            }
-        }
-
-        /* ارسال مستقیم هر نوع باینری بدون ذخیره در گوشی */
-        async function sendMediaDirectly(blobObj, mediaType) {
-            if (!blobObj || !dataChannel || dataChannel.readyState !== 'open') return;
-
-            const msgId = generateUniqueId();
-            const blobUrl = URL.createObjectURL(blobObj);
-            displayBlobInChat(blobUrl, mediaType, 'sent', msgId);
-
-            const arrayBuffer = await blobObj.arrayBuffer();
-            const mimeType = blobObj.type || (mediaType === 'audio' ? 'audio/webm' : 'video/mp4');
-
-            dataChannel.send(JSON.stringify({ 
-                type: 'file-start', 
-                id: msgId, 
-                mime: mimeType, 
-                size: arrayBuffer.byteLength 
-            }));
-
-            const CHUNK_SIZE = 16384; 
-            const idBytes = new TextEncoder().encode(msgId);
-            const idLen = idBytes.length;
-
-            let offset = 0;
-            function sendChunks() {
-                while (offset < arrayBuffer.byteLength) {
-                    if (dataChannel.bufferedAmount > 256 * 1024) {
-                        setTimeout(sendChunks, 25);
-                        return;
-                    }
-                    const end = Math.min(offset + CHUNK_SIZE, arrayBuffer.byteLength);
-                    const chunkData = arrayBuffer.slice(offset, end);
-                    
-                    const packet = new Uint8Array(1 + idLen + chunkData.byteLength);
-                    packet[0] = idLen;
-                    packet.set(idBytes, 1);
-                    packet.set(new Uint8Array(chunkData), 1 + idLen);
-
-                    dataChannel.send(packet.buffer);
-                    offset = end;
-                }
-
-                dataChannel.send(JSON.stringify({ type: 'file-end', id: msgId }));
-            }
-
-            sendChunks();
-        }
-
-        /* بخش ضبط ویدیو */
         async function openInAppRecordModal() {
             try {
                 await initRecordCamera(recFacingMode);
@@ -1330,7 +932,7 @@
                 document.getElementById('stop-rec-btn').style.display = 'none';
                 document.getElementById('rec-timer').style.display = 'none';
             } catch (err) {
-                alert("دسترسی به دوربین یا میکروفون امکان‌پذیر نشد:\n" + err.message + "\n\nلطفاً از تنظیمات مرورگر دسترسی دوربین و میکروفون را روی Allow بگذارید.");
+                alert("دسترسی به دوربین یا میکروفون امکان‌پذیر نشد: " + err.message);
             }
         }
 
@@ -1338,7 +940,10 @@
             if (recStream) {
                 recStream.getTracks().forEach(t => t.stop());
             }
-            recStream = await getSafeUserMedia(true, true);
+            recStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 20 }, facingMode: facing },
+                audio: true
+            });
             const v = document.getElementById('in-app-record-video');
             v.srcObject = recStream;
             v.style.transform = (facing === "user") ? "scaleX(-1)" : "none";
@@ -1346,7 +951,6 @@
 
         async function switchRecordCamera() {
             recFacingMode = (recFacingMode === "user") ? "environment" : "user";
-            currentFacingMode = recFacingMode;
             await initRecordCamera(recFacingMode);
         }
 
@@ -1431,22 +1035,14 @@
             const file = e.target.files[0];
             if (!file) return;
             pendingMediaBlob = file;
-            if (file.type.startsWith('video')) pendingMediaType = 'video';
-            else if (file.type.startsWith('audio')) pendingMediaType = 'audio';
-            else pendingMediaType = 'img';
+            pendingMediaType = file.type.startsWith('video') ? 'video' : 'img';
             
             const previewContainer = document.getElementById('preview-container');
             previewContainer.innerHTML = '';
-            let el;
+            let el = (pendingMediaType === 'video') ? document.createElement('video') : document.createElement('img');
             if (pendingMediaType === 'video') {
-                el = document.createElement('video');
                 el.controls = true;
                 el.playsInline = true;
-            } else if (pendingMediaType === 'audio') {
-                el = document.createElement('audio');
-                el.controls = true;
-            } else {
-                el = document.createElement('img');
             }
             el.src = URL.createObjectURL(pendingMediaBlob);
             previewContainer.appendChild(el);
@@ -1463,13 +1059,54 @@
         }
 
         async function confirmSendMedia() {
-            if (!pendingMediaBlob) return;
+            if (!pendingMediaBlob || !dataChannel || dataChannel.readyState !== 'open') return;
+            
             const sendBtn = document.getElementById('confirm-media-btn');
             sendBtn.textContent = 'در حال ارسال...';
             sendBtn.disabled = true;
 
-            await sendMediaDirectly(pendingMediaBlob, pendingMediaType);
-            cancelSendMedia();
+            const msgId = generateUniqueId();
+            const blobUrl = URL.createObjectURL(pendingMediaBlob);
+            displayBlobInChat(blobUrl, pendingMediaType, 'sent', msgId);
+            
+            const arrayBuffer = await pendingMediaBlob.arrayBuffer();
+            const mimeType = pendingMediaBlob.type || 'video/mp4';
+
+            dataChannel.send(JSON.stringify({ 
+                type: 'file-start', 
+                id: msgId, 
+                mime: mimeType, 
+                size: arrayBuffer.byteLength 
+            }));
+
+            const CHUNK_SIZE = 16384; 
+            const idBytes = new TextEncoder().encode(msgId);
+            const idLen = idBytes.length;
+
+            let offset = 0;
+            function sendChunks() {
+                while (offset < arrayBuffer.byteLength) {
+                    if (dataChannel.bufferedAmount > 256 * 1024) {
+                        setTimeout(sendChunks, 25);
+                        return;
+                    }
+                    const end = Math.min(offset + CHUNK_SIZE, arrayBuffer.byteLength);
+                    const chunkData = arrayBuffer.slice(offset, end);
+                    
+                    const packet = new Uint8Array(1 + idLen + chunkData.byteLength);
+                    packet[0] = idLen;
+                    packet.set(idBytes, 1);
+                    packet.set(new Uint8Array(chunkData), 1 + idLen);
+
+                    dataChannel.send(packet.buffer);
+                    offset = end;
+                }
+
+                dataChannel.send(JSON.stringify({ type: 'file-end', id: msgId }));
+                cancelSendMedia();
+            }
+
+            sendChunks();
         }
 
         function showWipeModal() {
@@ -1497,10 +1134,8 @@
         }
 
         function executeSilentWipe() {
-            clearInterval(heartbeatTimer);
             cleanupCall();
             closeInAppRecordModal();
-            cancelVoiceRecording();
             if (dataChannel) {
                 dataChannel.onclose = null;
                 dataChannel.close();
@@ -1515,7 +1150,11 @@
         async function startCall(videoCall = false) {
             isCurrentCallVideo = videoCall;
             try {
-                localStream = await getSafeUserMedia(videoCall, true);
+                const constraints = {
+                    audio: true,
+                    video: videoCall ? { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } } : false
+                };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
 
                 if (videoCall) {
                     document.getElementById('local-video').srcObject = localStream;
@@ -1545,7 +1184,7 @@
                 await callConnection.setLocalDescription(offer);
                 dataChannel.send(JSON.stringify({ type: 'call-offer', sdp: offer, isVideo: videoCall }));
             } catch (err) {
-                alert("خطا در دسترسی به دوربین یا میکروفون:\n" + err.message + "\n\nلطفاً دسترسی را در تنظیمات مرورگر تأیید کنید.");
+                alert("خطا در دسترسی به دوربین یا میکروفون: " + err.message);
                 cleanupCall();
                 hideCallModal();
             }
@@ -1559,7 +1198,11 @@
 
         async function acceptCall() {
             try {
-                localStream = await getSafeUserMedia(isCurrentCallVideo, true);
+                const constraints = {
+                    audio: true,
+                    video: isCurrentCallVideo ? { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } } : false
+                };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
                 hideCallModal();
 
                 if (isCurrentCallVideo) {
@@ -1593,7 +1236,7 @@
                 dataChannel.send(JSON.stringify({ type: 'call-answer', sdp: answer }));
                 pendingCallOffer = null;
             } catch (err) {
-                alert("خطا در دسترسی به دوربین/میکروفون:\n" + err.message);
+                alert("خطا در دسترسی به دوربین/میکروفون.");
                 rejectCall();
             }
         }
@@ -1651,7 +1294,9 @@
             if (videoTrack) videoTrack.stop();
 
             try {
-                const newStream = await getSafeUserMedia(true, false);
+                const newStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
+                });
                 const newVideoTrack = newStream.getVideoTracks()[0];
                 localStream.removeTrack(videoTrack);
                 localStream.addTrack(newVideoTrack);
