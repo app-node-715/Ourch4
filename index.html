@@ -1741,6 +1741,37 @@
         });
 
         restoreSession();
+        // ===== جلوگیری از خروج با دکمه back و درخواست تایید =====
+        (function () {
+            let allowExit = false;
+            const trap = () => { try { history.pushState({ ourch4: true }, '', location.href); } catch (e) {} };
+            // کروم فقط بعد از اولین لمس کاربر ورودی تاریخچه را برای back معتبر می‌داند
+            const armOnce = () => { trap(); document.removeEventListener('pointerdown', armOnce, true); document.removeEventListener('keydown', armOnce, true); };
+            document.addEventListener('pointerdown', armOnce, true);
+            document.addEventListener('keydown', armOnce, true);
+
+            window.addEventListener('popstate', () => {
+                if (allowExit) return;
+                // اگر پنل استیکر باز است، back فقط آن را می‌بندد
+                const panel = document.getElementById('sticker-panel');
+                if (panel && panel.style.display === 'grid') { panel.style.display = 'none'; trap(); return; }
+                if (confirm('آیا می‌خواهید از برنامه خارج شوید؟')) {
+                    allowExit = true;
+                    history.back();
+                    setTimeout(() => { try { window.close(); } catch (e) {} }, 300);
+                } else {
+                    trap();
+                }
+            });
+
+            // بستن تب یا رفرش صفحه هم تایید بخواهد
+            window.addEventListener('beforeunload', (e) => {
+                if (allowExit) return;
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            });
+        })();
     </script>
 </body>
 </html>
