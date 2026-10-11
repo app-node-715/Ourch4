@@ -1034,6 +1034,7 @@
                 dataChannel.send(JSON.stringify({ type: 'text', id: msgId, data: txt }));
                 addMessageToChat(txt, 'sent', msgId);
                 input.value = '';
+                document.getElementById('sticker-panel').style.display = 'none'; // بستن پنل استیکر بعد از ارسال
                 input.focus();
                 isTyping = false;
                 clearTimeout(typingTimer);
