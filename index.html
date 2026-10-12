@@ -570,9 +570,13 @@
 
         const rtcConfig = {
             iceServers: [
-                { urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302', 'stun:freeturn.net:3478'] },
-                // سرور رله (TURN): وقتی مسیر مستقیم بین دو شبکه پیدا نشود، ارتباط از این سرور عبور می‌کند
-                { urls: ['turn:freeturn.net:3478?transport=udp', 'turn:freeturn.net:3478?transport=tcp', 'turns:freeturn.net:5349'], username: 'free', credential: 'free' }
+                { urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302', 'stun:stun.relay.metered.ca:80'] },
+                // سرور رله (TURN) Metered: وقتی مسیر مستقیم بین دو اپراتور (مثلاً همراه اول و ایرانسل) پیدا نشود
+                {
+                    urls: ['turn:global.relay.metered.ca:80', 'turn:global.relay.metered.ca:80?transport=tcp',
+                           'turn:global.relay.metered.ca:443', 'turns:global.relay.metered.ca:443?transport=tcp'],
+                    username: 'e8b0a020df4d5b47aeca2606', credential: 'zvpq7cuWEQ38gtrs'
+                }
             ]
         };
 
@@ -674,7 +678,7 @@
                     setTimeout(() => {
                         pc.removeEventListener('icegatheringstatechange', checkState);
                         resolve();
-                    }, 7000);
+                    }, 10000);
                 }
             });
         }
@@ -1034,7 +1038,6 @@
                 dataChannel.send(JSON.stringify({ type: 'text', id: msgId, data: txt }));
                 addMessageToChat(txt, 'sent', msgId);
                 input.value = '';
-                document.getElementById('sticker-panel').style.display = 'none'; // بستن پنل استیکر بعد از ارسال
                 input.focus();
                 isTyping = false;
                 clearTimeout(typingTimer);
@@ -1741,37 +1744,6 @@
         });
 
         restoreSession();
-        // ===== جلوگیری از خروج با دکمه back و درخواست تایید =====
-        (function () {
-            let allowExit = false;
-            const trap = () => { try { history.pushState({ ourch4: true }, '', location.href); } catch (e) {} };
-            // کروم فقط بعد از اولین لمس کاربر ورودی تاریخچه را برای back معتبر می‌داند
-            const armOnce = () => { trap(); document.removeEventListener('pointerdown', armOnce, true); document.removeEventListener('keydown', armOnce, true); };
-            document.addEventListener('pointerdown', armOnce, true);
-            document.addEventListener('keydown', armOnce, true);
-
-            window.addEventListener('popstate', () => {
-                if (allowExit) return;
-                // اگر پنل استیکر باز است، back فقط آن را می‌بندد
-                const panel = document.getElementById('sticker-panel');
-                if (panel && panel.style.display === 'grid') { panel.style.display = 'none'; trap(); return; }
-                if (confirm('آیا می‌خواهید از برنامه خارج شوید؟')) {
-                    allowExit = true;
-                    history.back();
-                    setTimeout(() => { try { window.close(); } catch (e) {} }, 300);
-                } else {
-                    trap();
-                }
-            });
-
-            // بستن تب یا رفرش صفحه هم تایید بخواهد
-            window.addEventListener('beforeunload', (e) => {
-                if (allowExit) return;
-                e.preventDefault();
-                e.returnValue = '';
-                return '';
-            });
-        })();
     </script>
 </body>
 </html>
