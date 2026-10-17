@@ -290,6 +290,16 @@
         .emoji-btn { background-color: #ffcc00; }
         .attach-btn { background-color: #34b7f1; }
         .video-record-btn { background-color: #e91e63; }
+        .voice-btn { background-color: #4caf50; }
+        .voice-btn.recording { background-color: #d9534f; animation: recPulse 1s infinite; }
+        @keyframes recPulse { 50% { opacity: 0.55; } }
+        .voice-rec-bar { display: none; flex: 1; align-items: center; gap: 8px; color: #d9534f; font-weight: bold; font-size: 14px; min-width: 0; }
+        .voice-rec-bar .cancel-voice { background: #eee; color: #333; border: none; border-radius: 14px; padding: 4px 10px; cursor: pointer; font-family: inherit; }
+        .message audio { width: 240px; max-width: 100%; margin-top: 4px; display: block; }
+        .file-card { display: flex; align-items: center; gap: 8px; padding: 6px 4px; word-break: break-all; }
+        .file-card .file-icon { font-size: 30px; }
+        .file-card .file-meta { font-size: 12px; color: #666; }
+        #preview-container .file-card { justify-content: center; font-size: 15px; }
         
         .status { text-align: center; font-size: 13px; color: #d9534f; font-weight: bold; }
         
@@ -518,11 +528,16 @@
                 </svg>
             </button>
             <input type="text" id="message-input" placeholder="پیام..." onkeypress="handleEnter(event)">
+            <div class="voice-rec-bar" id="voice-rec-bar">
+                <span>🔴 در حال ضبط <span id="voice-rec-time">0:00</span></span>
+                <button class="cancel-voice" onclick="cancelVoiceRecording()">لغو</button>
+            </div>
             <button class="icon-btn emoji-btn" id="emoji-btn" onclick="toggleStickers()" title="استیکر">😀</button>
             
+            <button class="icon-btn voice-btn" id="voice-btn" onclick="toggleVoiceRecording()" title="ضبط صدا (دوباره بزنید تا ارسال شود)">🎤</button>
             <button class="icon-btn video-record-btn" id="video-rec-btn" onclick="openInAppRecordModal()" title="فیلم کم‌حجم">🎥</button>
             
-            <input type="file" id="media-input" accept="image/*, video/*" style="display: none;">
+            <input type="file" id="media-input" style="display: none;">
             <button class="icon-btn attach-btn" id="attach-btn" onclick="document.getElementById('media-input').click()" title="فایل">📎</button>
         </div>
     </div>
@@ -550,6 +565,7 @@
         let incomingFiles = {}; 
         let pendingMediaBlob = null; 
         let pendingMediaType = null;
+        let pendingMediaName = '';
         
         let callConnection;
         let localStream;
@@ -903,6 +919,7 @@
                     } else if (msg.type === 'file-start') {
                         incomingFiles[msg.id] = {
                             mime: msg.mime,
+                            name: msg.name || '',
                             chunks: [],
                             receivedBytes: 0,
                             totalBytes: msg.size
@@ -912,7 +929,7 @@
                         if (fileData) {
                             const blob = new Blob(fileData.chunks, { type: fileData.mime });
                             const url = URL.createObjectURL(blob);
-                            displayBlobInChat(url, fileData.mime.startsWith('video') ? 'video' : 'img', 'received', msg.id);
+                            displayBlobInChat(url, mimeToType(fileData.mime), 'received', msg.id, fileData.name, blob.size);
                             delete incomingFiles[msg.id];
                         }
                     } else if (msg.type === 'control') {
@@ -1119,7 +1136,39 @@
             setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
         }
 
-        function displayBlobInChat(blobUrl, mediaType, alignment, msgId) {
+        function mimeToType(mime) {
+            mime = mime || '';
+            if (mime.startsWith('video')) return 'video';
+            if (mime.startsWith('image')) return 'img';
+            if (mime.startsWith('audio')) return 'audio';
+            return 'file';
+        }
+
+        function formatSize(bytes) {
+            if (!bytes && bytes !== 0) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+        }
+
+        function buildFileCard(name, size) {
+            const card = document.createElement('div');
+            card.className = 'file-card';
+            const icon = document.createElement('span');
+            icon.className = 'file-icon';
+            icon.textContent = '📄';
+            const info = document.createElement('div');
+            const n = document.createElement('div');
+            n.textContent = name || 'فایل';
+            const m = document.createElement('div');
+            m.className = 'file-meta';
+            m.textContent = formatSize(size);
+            info.appendChild(n); info.appendChild(m);
+            card.appendChild(icon); card.appendChild(info);
+            return card;
+        }
+
+        function displayBlobInChat(blobUrl, mediaType, alignment, msgId, fileName, fileSize) {
             const container = document.getElementById('messages-container');
             const div = document.createElement('div');
             div.classList.add('message', alignment);
@@ -1135,21 +1184,32 @@
                 el.controls = true;
                 el.playsInline = true;
                 el.preload = 'auto';
+                el.src = blobUrl;
+            } else if (mediaType === 'audio') {
+                el = document.createElement('audio');
+                el.controls = true;
+                el.preload = 'auto';
+                el.src = blobUrl;
+                el.onclick = (e) => e.stopPropagation();
+            } else if (mediaType === 'file') {
+                el = buildFileCard(fileName, fileSize);
             } else {
                 el = document.createElement('img');
+                el.src = blobUrl;
             }
-            el.src = blobUrl;
             mediaWrapper.appendChild(el);
             
             const downloadLink = document.createElement('a');
             downloadLink.href = blobUrl;
-            downloadLink.download = (mediaType === 'video') ? 'video.mp4' : 'image.png';
+            downloadLink.download = fileName || ((mediaType === 'video') ? 'video.mp4' : (mediaType === 'audio') ? 'voice.webm' : (mediaType === 'file') ? 'file' : 'image.png');
+            downloadLink.onclick = (e) => e.stopPropagation();
             downloadLink.className = 'download-btn';
             downloadLink.textContent = '⬇️ دانلود';
             
             mediaWrapper.appendChild(downloadLink);
             div.appendChild(mediaWrapper);
             container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
             
             el.onload = () => { container.scrollTop = container.scrollHeight; };
             el.onloadeddata = () => { container.scrollTop = container.scrollHeight; };
@@ -1266,16 +1326,23 @@
             const file = e.target.files[0];
             if (!file) return;
             pendingMediaBlob = file;
-            pendingMediaType = file.type.startsWith('video') ? 'video' : 'img';
+            pendingMediaType = mimeToType(file.type);
+            pendingMediaName = file.name || '';
             
             const previewContainer = document.getElementById('preview-container');
             previewContainer.innerHTML = '';
-            let el = (pendingMediaType === 'video') ? document.createElement('video') : document.createElement('img');
-            if (pendingMediaType === 'video') {
+            let el;
+            if (pendingMediaType === 'video' || pendingMediaType === 'audio') {
+                el = document.createElement(pendingMediaType);
                 el.controls = true;
                 el.playsInline = true;
+                el.src = URL.createObjectURL(pendingMediaBlob);
+            } else if (pendingMediaType === 'img') {
+                el = document.createElement('img');
+                el.src = URL.createObjectURL(pendingMediaBlob);
+            } else {
+                el = buildFileCard(file.name, file.size);
             }
-            el.src = URL.createObjectURL(pendingMediaBlob);
             previewContainer.appendChild(el);
             document.getElementById('confirm-media-btn').textContent = 'ارسال';
             document.getElementById('confirm-media-btn').disabled = false;
@@ -1286,6 +1353,7 @@
             document.getElementById('preview-modal').style.display = 'none';
             pendingMediaBlob = null;
             pendingMediaType = null;
+            pendingMediaName = '';
             document.getElementById('media-input').value = '';
         }
 
@@ -1296,17 +1364,23 @@
             sendBtn.textContent = 'در حال ارسال...';
             sendBtn.disabled = true;
 
+            await sendBlobOverChannel(pendingMediaBlob, pendingMediaType, pendingMediaName, cancelSendMedia);
+        }
+
+        async function sendBlobOverChannel(blob, mediaType, fileName, onDone) {
+            if (!blob || !dataChannel || dataChannel.readyState !== 'open') return;
             const msgId = generateUniqueId();
-            const blobUrl = URL.createObjectURL(pendingMediaBlob);
-            displayBlobInChat(blobUrl, pendingMediaType, 'sent', msgId);
+            const blobUrl = URL.createObjectURL(blob);
+            displayBlobInChat(blobUrl, mediaType, 'sent', msgId, fileName, blob.size);
             
-            const arrayBuffer = await pendingMediaBlob.arrayBuffer();
-            const mimeType = pendingMediaBlob.type || 'video/mp4';
+            const arrayBuffer = await blob.arrayBuffer();
+            const mimeType = blob.type || (mediaType === 'file' ? 'application/octet-stream' : 'video/mp4');
 
             dataChannel.send(JSON.stringify({ 
                 type: 'file-start', 
                 id: msgId, 
                 mime: mimeType, 
+                name: fileName || '',
                 size: arrayBuffer.byteLength 
             }));
 
@@ -1334,10 +1408,82 @@
                 }
 
                 dataChannel.send(JSON.stringify({ type: 'file-end', id: msgId }));
-                cancelSendMedia();
+                if (onDone) onDone();
             }
 
             sendChunks();
+        }
+
+        // ===== ضبط و ارسال صدا =====
+        let voiceRecorder = null, voiceStream = null, voiceChunks = [], voiceTimer = null, voiceSec = 0, voiceCancelled = false;
+        const VOICE_MAX_SEC = 300;
+
+        async function toggleVoiceRecording() {
+            if (voiceRecorder && voiceRecorder.state === 'recording') { stopVoiceRecording(false); return; }
+            if (!dataChannel || dataChannel.readyState !== 'open') { alert('ابتدا باید به طرف مقابل وصل باشید.'); return; }
+            try {
+                voiceStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+            } catch (err) {
+                alert('دسترسی به میکروفون امکان‌پذیر نشد: ' + err.message);
+                return;
+            }
+            let mime = '';
+            ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm'].some(m => {
+                if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) { mime = m; return true; }
+                return false;
+            });
+            const opts = mime ? { mimeType: mime, audioBitsPerSecond: 24000 } : { audioBitsPerSecond: 24000 };
+            try { voiceRecorder = new MediaRecorder(voiceStream, opts); }
+            catch (e) { voiceRecorder = new MediaRecorder(voiceStream); }
+            voiceChunks = [];
+            voiceCancelled = false;
+            voiceRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) voiceChunks.push(e.data); };
+            voiceRecorder.onstop = () => {
+                const type = (voiceRecorder.mimeType || mime || 'audio/webm').split(';')[0];
+                const blob = new Blob(voiceChunks, { type });
+                releaseVoiceStream();
+                if (!voiceCancelled && blob.size > 0 && voiceSec >= 1) {
+                    const ext = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
+                    sendBlobOverChannel(blob, 'audio', 'voice-' + Date.now() + '.' + ext);
+                }
+            };
+            voiceRecorder.start(500);
+            voiceSec = 0;
+            updateVoiceTime();
+            document.getElementById('voice-btn').classList.add('recording');
+            document.getElementById('voice-btn').textContent = '⏹';
+            document.getElementById('message-input').style.display = 'none';
+            document.getElementById('voice-rec-bar').style.display = 'flex';
+            document.getElementById('sticker-panel').style.display = 'none';
+            voiceTimer = setInterval(() => {
+                voiceSec++;
+                updateVoiceTime();
+                if (voiceSec >= VOICE_MAX_SEC) stopVoiceRecording(false);
+            }, 1000);
+        }
+
+        function updateVoiceTime() {
+            const m = Math.floor(voiceSec / 60), s = voiceSec % 60;
+            document.getElementById('voice-rec-time').textContent = m + ':' + String(s).padStart(2, '0');
+        }
+
+        function stopVoiceRecording(cancel) {
+            voiceCancelled = !!cancel;
+            clearInterval(voiceTimer);
+            if (voiceRecorder && voiceRecorder.state === 'recording') voiceRecorder.stop();
+            else releaseVoiceStream();
+            const btn = document.getElementById('voice-btn');
+            if (btn) { btn.classList.remove('recording'); btn.textContent = '🎤'; }
+            const bar = document.getElementById('voice-rec-bar');
+            if (bar) bar.style.display = 'none';
+            const input = document.getElementById('message-input');
+            if (input) input.style.display = '';
+        }
+
+        function cancelVoiceRecording() { stopVoiceRecording(true); }
+
+        function releaseVoiceStream() {
+            if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; }
         }
 
         function showWipeModal() {
@@ -1373,6 +1519,7 @@
             try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
             cleanupCall();
             closeInAppRecordModal();
+            try { stopVoiceRecording(true); } catch(e) {}
             if (dataChannel) {
                 dataChannel.onclose = null;
                 dataChannel.close();
