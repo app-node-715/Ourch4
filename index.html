@@ -56,14 +56,20 @@
             align-items: center;
             border-bottom: 2px solid #054c44;
             z-index: 10;
-            height: 35px;
+            min-height: 35px;
             flex-shrink: 0;
         }
         
         .title-container {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: center;
+            line-height: 1.25;
+            min-width: 0;
         }
+        .title-container .typing-indicator { margin-right: 0; font-size: 12px; }
+        .title-container .peer-status { margin-right: 0; }
         
         .typing-indicator {
             display: none;
@@ -262,8 +268,14 @@
             flex-shrink: 0;
         }
         
-        .chat-input-area input[type="text"] {
+        #message-input {
             flex: 1;
+            resize: none;
+            box-sizing: border-box;
+            line-height: 1.4;
+            max-height: 110px;
+            overflow-y: auto;
+            height: 38px;
             padding: 8px 12px;
             border: 1px solid #ccc;
             border-radius: 20px;
@@ -293,7 +305,21 @@
         .voice-btn { background-color: #4caf50; }
         .voice-btn.recording { background-color: #d9534f; animation: recPulse 1s infinite; }
         @keyframes recPulse { 50% { opacity: 0.55; } }
-        .voice-rec-bar { display: none; flex: 1; align-items: center; gap: 8px; color: #d9534f; font-weight: bold; font-size: 14px; min-width: 0; }
+        .voice-rec-bar, .edit-bar { display: none; position: absolute; bottom: 100%; left: 0; right: 0; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 12px; font-weight: bold; font-size: 14px; z-index: 40; border-top: 1px solid #ddd; }
+        .voice-rec-bar { background: #fff0f0; color: #d9534f; }
+        .edit-bar { background: #e8f5e9; color: #075e54; }
+        .edit-bar .edit-preview { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: normal; color: #555; }
+        .edit-bar button { background: #eee; color: #333; border: none; border-radius: 14px; padding: 4px 10px; cursor: pointer; font-family: inherit; }
+        .msg-text { white-space: pre-wrap; }
+        .edited-tag { font-size: 11px; color: #888; margin-right: 6px; }
+        .send-progress { font-size: 12px; color: #666; }
+        .peer-status { font-family: Tahoma, Arial, sans-serif; font-size: 12px; font-weight: normal; margin-right: 8px; color: #b2dfdb; white-space: nowrap; }
+        .peer-status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 4px; background: #9e9e9e; }
+        .btn-reconnect { background-color: #ff9800; }
+        #in-app-record-modal { align-items: flex-start; padding-top: 55px; background: transparent; pointer-events: none; height: auto; bottom: 70px; }
+        #in-app-record-modal .modal-content { pointer-events: auto; width: 250px !important; padding: 8px; }
+        #in-app-record-video { max-height: 28vh; }
+        .tap-to-play { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); z-index: 2030; background: rgba(0,0,0,0.75); color: #fff; padding: 12px 18px; border-radius: 10px; display: none; cursor: pointer; font-family: Tahoma, Arial, sans-serif; }
         .voice-rec-bar .cancel-voice { background: #eee; color: #333; border: none; border-radius: 14px; padding: 4px 10px; cursor: pointer; font-family: inherit; }
         .message audio { width: 240px; max-width: 100%; margin-top: 4px; display: block; }
         .file-card { display: flex; align-items: center; gap: 8px; padding: 6px 4px; word-break: break-all; }
@@ -404,10 +430,12 @@
         <div class="chat-header" id="chat-header">
             <div class="title-container">
                 <span id="chat-title"></span>
+                <span id="peer-status" class="peer-status"><span class="dot" id="peer-dot"></span><span id="peer-status-text">در حال اتصال...</span></span>
                 <span id="typing-indicator" class="typing-indicator">در حال تایپ...</span>
             </div>
             
             <div class="header-btns">
+                <button class="btn-call btn-reconnect" id="reconnect-btn" onclick="manualReconnect()" title="اتصال مجدد">🔄</button>
                 <button class="btn-call" id="call-btn" onclick="startCall(false)" title="تماس صوتی">📞</button>
                 <button class="btn-call" id="video-call-btn" onclick="startCall(true)" style="background-color: #0088cc;" title="تماس تصویری">📹</button>
                 <button class="btn-disconnect" id="disconnect-btn" onclick="showWipeModal()">پاکسازی</button>
@@ -417,6 +445,7 @@
         <div class="action-bar" id="action-bar">
             <span id="selection-count">۱ پیام</span>
             <div class="header-btns">
+                <button class="icon-btn" id="edit-msg-btn" onclick="startEditSelected()" style="background-color: #128c7e; display:none;" title="ویرایش">✏️</button>
                 <button class="icon-btn" onclick="showDeleteModal()" style="background-color: #d9534f;" title="حذف">🗑</button>
                 <button class="icon-btn" onclick="clearSelection()" style="background-color: #6c757d;" title="لغو">❌</button>
             </div>
@@ -440,6 +469,16 @@
                     <button class="btn btn-danger" onclick="executeWipeChoice('everyone')">برای هر دو نفر و قطع ارتباط</button>
                     <button class="btn btn-alt" style="background:#f0ad4e; color:#fff;" onclick="executeWipeChoice('me')">فقط برای من و قطع ارتباط</button>
                     <button class="btn" style="background-color: #6c757d;" onclick="hideWipeModal()">انصراف</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="exit-modal" class="modal-overlay">
+            <div class="call-content" style="background-color: #fff; color: #000; border: 2px solid #ddd;">
+                <h3 style="margin-bottom: 18px; font-size:16px;">آیا می‌خواهید از برنامه خارج شوید؟</h3>
+                <div class="btn-group">
+                    <button class="btn btn-danger" onclick="confirmExitApp()">خروج</button>
+                    <button class="btn" style="background-color: #6c757d;" onclick="hideExitModal()">ماندن</button>
                 </div>
             </div>
         </div>
@@ -483,6 +522,7 @@
         <div id="video-call-modal" class="video-call-overlay">
             <video id="remote-video" autoplay playsinline></video>
             <video id="local-video" autoplay playsinline muted></video>
+            <div class="tap-to-play" id="tap-to-play" onclick="resumeRemoteMedia()">🔊 برای شنیدن صدا لمس کنید</div>
             <div class="video-call-controls">
                 <button class="call-action-circle" onclick="switchCamera()" style="background-color: #34b7f1;" title="چرخش دوربین">🔄</button>
                 <button class="call-action-circle" id="mute-mic-btn" onclick="toggleMute()" style="background-color: #6c757d;" title="میکروفون">🎙️</button>
@@ -527,7 +567,12 @@
                     <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
                 </svg>
             </button>
-            <input type="text" id="message-input" placeholder="پیام..." onkeypress="handleEnter(event)">
+            <textarea id="message-input" rows="1" placeholder="پیام..." onkeydown="handleEnter(event)"></textarea>
+            <div class="edit-bar" id="edit-bar">
+                <span>✏️ ویرایش:</span>
+                <span class="edit-preview" id="edit-preview"></span>
+                <button onclick="cancelEdit()">لغو</button>
+            </div>
             <div class="voice-rec-bar" id="voice-rec-bar">
                 <span>🔴 در حال ضبط <span id="voice-rec-time">0:00</span></span>
                 <button class="cancel-voice" onclick="cancelVoiceRecording()">لغو</button>
@@ -621,13 +666,14 @@
                     if (disconnectTimer) { clearTimeout(disconnectTimer); disconnectTimer = null; }
                 }
                 if (room && pc.iceConnectionState === 'disconnected') {
+                    updatePresence();
                     if (!disconnectTimer) disconnectTimer = setTimeout(() => {
                         disconnectTimer = null;
-                        if (pc === peerConnection && pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') startReconnect();
-                    }, 8000);
+                        if (pc === peerConnection && pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') startReconnect(true);
+                    }, 6000);
                     return;
                 }
-                if (room && pc.iceConnectionState === 'failed') { startReconnect(); return; }
+                if (room && pc.iceConnectionState === 'failed') { startReconnect(true); return; }
                 if (pc.iceConnectionState === 'checking') { st.textContent = 'در حال برقراری اتصال...'; st.style.color = '#128c7e'; }
                 if (pc.iceConnectionState === 'failed') {
                     st.textContent = 'اتصال برقرار نشد. یکی از دو طرف شبکه را عوض کند (وای‌فای/داده همراه) و دوباره «ایجاد کد» بزند.';
@@ -910,12 +956,16 @@
             dataChannel.onclose = () => startReconnect();
             
             dataChannel.onmessage = event => {
+                lastPeerSeen = Date.now();
                 if (typeof event.data === 'string') {
                     const msg = JSON.parse(event.data);
                     if (msg.type === 'text') {
+                        peerTyping = false; renderPeerActivity();
                         addMessageToChat(msg.data, 'received', msg.id);
                     } else if (msg.type === 'sticker') {
                         addStickerToChat(msg.data, 'received', msg.id);
+                    } else if (msg.type === 'edit') {
+                        applyEdit(msg.id, msg.data, 'received');
                     } else if (msg.type === 'file-start') {
                         incomingFiles[msg.id] = {
                             mime: msg.mime,
@@ -924,6 +974,7 @@
                             receivedBytes: 0,
                             totalBytes: msg.size
                         };
+                        renderPeerActivity();
                     } else if (msg.type === 'file-end') {
                         const fileData = incomingFiles[msg.id];
                         if (fileData) {
@@ -932,6 +983,7 @@
                             displayBlobInChat(url, mimeToType(fileData.mime), 'received', msg.id, fileData.name, blob.size);
                             delete incomingFiles[msg.id];
                         }
+                        renderPeerActivity();
                     } else if (msg.type === 'control') {
                         if (msg.command === 'disconnect') {
                             executeSilentWipe();
@@ -950,9 +1002,19 @@
                             });
                             unlogMessages(msg.ids);
                         } else if (msg.command === 'typing') {
-                            document.getElementById('typing-indicator').style.display = 'block';
+                            peerTyping = true; renderPeerActivity();
                         } else if (msg.command === 'stop-typing') {
-                            document.getElementById('typing-indicator').style.display = 'none';
+                            peerTyping = false; renderPeerActivity();
+                        } else if (msg.command === 'activity') {
+                            peerActivity = msg.what || ''; renderPeerActivity();
+                        } else if (msg.command === 'ping') {
+                            peerVisible = msg.vis !== 'hidden';
+                            updatePresence();
+                        } else if (msg.command === 'presence') {
+                            peerVisible = msg.vis !== 'hidden';
+                            updatePresence();
+                        } else if (msg.command === 'reconnect') {
+                            startReconnect(true);
                         }
                     } else if (msg.type === 'call-offer') handleCallOffer(msg.sdp, msg.isVideo);
                     else if (msg.type === 'call-answer') handleCallAnswer(msg.sdp);
@@ -968,12 +1030,21 @@
 
                     if (incomingFiles[id]) {
                         incomingFiles[id].chunks.push(chunk);
+                        incomingFiles[id].receivedBytes += chunk.byteLength;
+                        if (Date.now() - lastActivityRender > 400) renderPeerActivity();
                     }
                 }
             };
         }
 
+        function autoSizeInput() {
+            const el = document.getElementById('message-input');
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight + 2, 110) + 'px';
+        }
+
         document.getElementById('message-input').addEventListener('input', () => {
+            autoSizeInput();
             if (dataChannel && dataChannel.readyState === 'open') {
                 if (!isTyping) {
                     isTyping = true;
@@ -1013,6 +1084,8 @@
             if (selectedMessages.length > 0) {
                 bar.style.display = 'flex';
                 document.getElementById('selection-count').textContent = selectedMessages.length + ' پیام';
+                const one = selectedMessages.length === 1 ? document.querySelector(`[data-msg-id="${selectedMessages[0]}"]`) : null;
+                document.getElementById('edit-msg-btn').style.display = (one && one.classList.contains('sent') && one.querySelector('.msg-text')) ? 'flex' : 'none';
             } else {
                 bar.style.display = 'none';
             }
@@ -1050,11 +1123,22 @@
         function sendTextMessage() {
             const input = document.getElementById('message-input');
             const txt = input.value.trim();
+            if (editingId) {
+                if (txt !== "" && dataChannel && dataChannel.readyState === 'open') {
+                    dataChannel.send(JSON.stringify({ type: 'edit', id: editingId, data: txt }));
+                    applyEdit(editingId, txt, 'sent');
+                    cancelEdit();
+                    document.getElementById('sticker-panel').style.display = 'none';
+                    input.focus();
+                }
+                return;
+            }
             if (txt !== "" && dataChannel && dataChannel.readyState === 'open') {
                 const msgId = generateUniqueId();
                 dataChannel.send(JSON.stringify({ type: 'text', id: msgId, data: txt }));
                 addMessageToChat(txt, 'sent', msgId);
                 input.value = '';
+                autoSizeInput();
                 document.getElementById('sticker-panel').style.display = 'none'; // بستن پنل استیکر بعد از ارسال
                 input.focus();
                 isTyping = false;
@@ -1063,13 +1147,70 @@
             }
         }
 
-        function handleEnter(event) { if (event.key === 'Enter') sendTextMessage(); }
+        // Enter = رفتن به سطر بعد؛ Ctrl+Enter = ارسال (روی کامپیوتر)
+        function handleEnter(event) {
+            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); sendTextMessage(); }
+        }
 
-        function addMessageToChat(text, type, msgId) {
+        // ---------- ویرایش پیام ----------
+        let editingId = null;
+
+        function startEditSelected() {
+            if (selectedMessages.length !== 1) return;
+            const id = selectedMessages[0];
+            const el = document.querySelector(`[data-msg-id="${id}"]`);
+            if (!el || !el.classList.contains('sent')) return;
+            const span = el.querySelector('.msg-text');
+            if (!span) return;
+            clearSelection();
+            editingId = id;
+            const input = document.getElementById('message-input');
+            input.value = span.textContent;
+            autoSizeInput();
+            document.getElementById('edit-preview').textContent = span.textContent;
+            document.getElementById('edit-bar').style.display = 'flex';
+            input.focus();
+            try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
+        }
+
+        function cancelEdit() {
+            editingId = null;
+            document.getElementById('edit-bar').style.display = 'none';
+            const input = document.getElementById('message-input');
+            input.value = '';
+            autoSizeInput();
+        }
+
+        function applyEdit(id, text, side) {
+            const el = document.querySelector(`[data-msg-id="${id}"]`);
+            if (!el || !el.classList.contains(side)) return;   // هر کس فقط پیام خودش را ویرایش می‌کند
+            const span = el.querySelector('.msg-text');
+            if (!span) return;
+            span.textContent = text;
+            if (!el.querySelector('.edited-tag')) {
+                const tag = document.createElement('span');
+                tag.className = 'edited-tag';
+                tag.textContent = '(ویرایش شد)';
+                el.appendChild(tag);
+            }
+            const entry = chatLog.find(m => m.id === id);
+            if (entry) { entry.data = text; entry.edited = true; saveSession(); }
+        }
+
+        function addMessageToChat(text, type, msgId, edited) {
             const container = document.getElementById('messages-container');
             const div = document.createElement('div');
             div.classList.add('message', type);
-            div.textContent = text;
+            const span = document.createElement('span');
+            span.className = 'msg-text';
+            span.textContent = text;
+            div.appendChild(span);
+            if (edited) {
+                const tag = document.createElement('span');
+                tag.className = 'edited-tag';
+                tag.textContent = '(ویرایش شد)';
+                div.appendChild(tag);
+            }
             logMessage('text', text, type, msgId);
             if(msgId) div.setAttribute('data-msg-id', msgId);
             div.onclick = (e) => toggleSelection(msgId, e);
@@ -1213,6 +1354,7 @@
             
             el.onload = () => { container.scrollTop = container.scrollHeight; };
             el.onloadeddata = () => { container.scrollTop = container.scrollHeight; };
+            return div;
         }
 
         async function openInAppRecordModal() {
@@ -1254,6 +1396,7 @@
                 recStream = null;
             }
             clearInterval(recTimerInterval);
+            sendActivity('');
             document.getElementById('in-app-record-modal').style.display = 'none';
         }
 
@@ -1303,6 +1446,7 @@
             };
 
             internalRecorder.start(500);
+            sendActivity('video');
             recSecCount = 0;
             document.getElementById('rec-sec').textContent = recSecCount;
             document.getElementById('rec-timer').style.display = 'block';
@@ -1364,14 +1508,23 @@
             sendBtn.textContent = 'در حال ارسال...';
             sendBtn.disabled = true;
 
-            await sendBlobOverChannel(pendingMediaBlob, pendingMediaType, pendingMediaName, cancelSendMedia);
+            // پنجره پیش‌نمایش فوراً بسته می‌شود تا هنگام ارسال بتوان تایپ کرد
+            const blob = pendingMediaBlob, type = pendingMediaType, name = pendingMediaName;
+            cancelSendMedia();
+            await sendBlobOverChannel(blob, type, name);
         }
 
         async function sendBlobOverChannel(blob, mediaType, fileName, onDone) {
             if (!blob || !dataChannel || dataChannel.readyState !== 'open') return;
             const msgId = generateUniqueId();
             const blobUrl = URL.createObjectURL(blob);
-            displayBlobInChat(blobUrl, mediaType, 'sent', msgId, fileName, blob.size);
+            const bubble = displayBlobInChat(blobUrl, mediaType, 'sent', msgId, fileName, blob.size);
+            const prog = document.createElement('span');
+            prog.className = 'send-progress';
+            prog.textContent = '⏳ در حال ارسال ۰٪';
+            const wrap = bubble.querySelector('.media-container') || bubble;
+            wrap.appendChild(prog);
+            const faNum = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
             
             const arrayBuffer = await blob.arrayBuffer();
             const mimeType = blob.type || (mediaType === 'file' ? 'application/octet-stream' : 'video/mp4');
@@ -1389,9 +1542,12 @@
             const idLen = idBytes.length;
 
             let offset = 0;
+            const ch = dataChannel;
             function sendChunks() {
+                if (ch.readyState !== 'open') { prog.textContent = '⚠️ ارسال ناتمام ماند (قطع ارتباط)'; return; }
+                prog.textContent = '⏳ در حال ارسال ' + faNum(Math.floor(offset * 100 / Math.max(1, arrayBuffer.byteLength))) + '٪';
                 while (offset < arrayBuffer.byteLength) {
-                    if (dataChannel.bufferedAmount > 256 * 1024) {
+                    if (ch.bufferedAmount > 256 * 1024) {
                         setTimeout(sendChunks, 25);
                         return;
                     }
@@ -1403,11 +1559,13 @@
                     packet.set(idBytes, 1);
                     packet.set(new Uint8Array(chunkData), 1 + idLen);
 
-                    dataChannel.send(packet.buffer);
+                    try { ch.send(packet.buffer); } catch (e) { prog.textContent = '⚠️ ارسال ناتمام ماند'; return; }
                     offset = end;
                 }
 
-                dataChannel.send(JSON.stringify({ type: 'file-end', id: msgId }));
+                ch.send(JSON.stringify({ type: 'file-end', id: msgId }));
+                prog.textContent = '✓ ارسال شد';
+                setTimeout(() => prog.remove(), 2500);
                 if (onDone) onDone();
             }
 
@@ -1452,8 +1610,8 @@
             updateVoiceTime();
             document.getElementById('voice-btn').classList.add('recording');
             document.getElementById('voice-btn').textContent = '⏹';
-            document.getElementById('message-input').style.display = 'none';
             document.getElementById('voice-rec-bar').style.display = 'flex';
+            sendActivity('voice');
             document.getElementById('sticker-panel').style.display = 'none';
             voiceTimer = setInterval(() => {
                 voiceSec++;
@@ -1476,8 +1634,7 @@
             if (btn) { btn.classList.remove('recording'); btn.textContent = '🎤'; }
             const bar = document.getElementById('voice-rec-bar');
             if (bar) bar.style.display = 'none';
-            const input = document.getElementById('message-input');
-            if (input) input.style.display = '';
+            sendActivity('');
         }
 
         function cancelVoiceRecording() { stopVoiceRecording(true); }
@@ -1531,7 +1688,12 @@
             document.body.style.backgroundColor = '#ffffff';
         }
 
+        let remoteCallStream = null;
+
         async function startCall(videoCall = false) {
+            if (!dataChannel || dataChannel.readyState !== 'open') { alert('ابتدا باید به مخاطب وصل باشید.'); return; }
+            if (callConnection) return;
+            pendingCallCandidates = [];
             isCurrentCallVideo = videoCall;
             try {
                 const constraints = {
@@ -1547,6 +1709,7 @@
                     showCallModal("در حال تماس صوتی...", "active");
                 }
 
+                remoteCallStream = null;
                 callConnection = new RTCPeerConnection(rtcConfig);
                 localStream.getTracks().forEach(track => callConnection.addTrack(track, localStream));
 
@@ -1556,13 +1719,8 @@
                     }
                 };
 
-                callConnection.ontrack = e => {
-                    if (isCurrentCallVideo) {
-                        document.getElementById('remote-video').srcObject = e.streams[0];
-                    } else {
-                        document.getElementById('remote-audio').srcObject = e.streams[0];
-                    }
-                };
+                callConnection.ontrack = attachRemoteTrack;
+                watchCallState(callConnection);
 
                 const offer = await callConnection.createOffer();
                 await callConnection.setLocalDescription(offer);
@@ -1574,7 +1732,52 @@
             }
         }
 
+        let pendingCallCandidates = [];
+
+        function attachRemoteTrack(e) {
+            if (!remoteCallStream) remoteCallStream = new MediaStream();
+            const stream = (e.streams && e.streams[0]) ? e.streams[0] : remoteCallStream;
+            if (stream === remoteCallStream && !remoteCallStream.getTracks().includes(e.track)) remoteCallStream.addTrack(e.track);
+            const el = document.getElementById(isCurrentCallVideo ? 'remote-video' : 'remote-audio');
+            if (el.srcObject !== stream) el.srcObject = stream;
+            el.muted = false;
+            const p = el.play();
+            if (p && p.catch) p.catch(() => {
+                document.getElementById('tap-to-play').style.display = isCurrentCallVideo ? 'block' : 'none';
+                if (!isCurrentCallVideo) showCallModal('در حال مکالمه — برای شنیدن صدا صفحه را لمس کنید', 'active');
+                document.addEventListener('click', resumeRemoteMedia, { once: true });
+            });
+        }
+
+        function resumeRemoteMedia() {
+            document.getElementById('tap-to-play').style.display = 'none';
+            ['remote-video', 'remote-audio'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el.srcObject) { const p = el.play(); if (p && p.catch) p.catch(() => {}); }
+            });
+        }
+
+        function watchCallState(pc) {
+            pc.onconnectionstatechange = () => {
+                if (pc !== callConnection) return;
+                const st = pc.connectionState;
+                if (!isCurrentCallVideo) {
+                    if (st === 'connecting') showCallModal('در حال برقراری مسیر صدا...', 'active');
+                    else if (st === 'connected') showCallModal('در حال مکالمه', 'active');
+                    else if (st === 'failed') showCallModal('مسیر صدا برقرار نشد. تماس را قطع و دوباره امتحان کنید.', 'active');
+                }
+                if (st === 'failed') { try { pc.restartIce(); } catch (e) {} }
+            };
+        }
+
+        async function flushCallCandidates() {
+            if (!callConnection || !callConnection.remoteDescription) return;
+            const list = pendingCallCandidates; pendingCallCandidates = [];
+            for (const c of list) { try { await callConnection.addIceCandidate(new RTCIceCandidate(c)); } catch (e) {} }
+        }
+
         function handleCallOffer(offer, isVideo) {
+            pendingCallCandidates = [];
             pendingCallOffer = offer;
             isCurrentCallVideo = isVideo;
             showCallModal(isVideo ? "تماس تصویری ورودی..." : "تماس صوتی ورودی...", "incoming");
@@ -1596,6 +1799,7 @@
                     showCallModal("در حال مکالمه", "active");
                 }
 
+                remoteCallStream = null;
                 callConnection = new RTCPeerConnection(rtcConfig);
                 localStream.getTracks().forEach(track => callConnection.addTrack(track, localStream));
 
@@ -1605,15 +1809,11 @@
                     }
                 };
 
-                callConnection.ontrack = e => {
-                    if (isCurrentCallVideo) {
-                        document.getElementById('remote-video').srcObject = e.streams[0];
-                    } else {
-                        document.getElementById('remote-audio').srcObject = e.streams[0];
-                    }
-                };
+                callConnection.ontrack = attachRemoteTrack;
+                watchCallState(callConnection);
 
                 await callConnection.setRemoteDescription(new RTCSessionDescription(pendingCallOffer));
+                await flushCallCandidates();
                 const answer = await callConnection.createAnswer();
                 await callConnection.setLocalDescription(answer);
 
@@ -1629,6 +1829,7 @@
             if (dataChannel && dataChannel.readyState === 'open') dataChannel.send(JSON.stringify({ type: 'call-reject' }));
             hideCallModal();
             pendingCallOffer = null;
+            pendingCallCandidates = [];
         }
 
         function handleCallReject() {
@@ -1640,14 +1841,21 @@
         async function handleCallAnswer(answer) {
             if (callConnection) {
                 await callConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                await flushCallCandidates();
                 if (!isCurrentCallVideo) {
-                    showCallModal("در حال مکالمه", "active");
+                    showCallModal("در حال برقراری مسیر صدا...", "active");
                 }
             }
         }
 
+        // کاندیدهایی که قبل از پاسخ دادن می‌رسند نگه داشته می‌شوند (قبلاً دور ریخته می‌شدند و صدا/تصویر نمی‌آمد)
         function handleCallCandidate(candidate) {
-            if (callConnection) callConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            if (!candidate) return;
+            if (callConnection && callConnection.remoteDescription) {
+                callConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+            } else {
+                pendingCallCandidates.push(candidate);
+            }
         }
 
         function endCall() {
@@ -1663,6 +1871,8 @@
 
         function cleanupCall() {
             if (callConnection) { callConnection.close(); callConnection = null; }
+            pendingCallCandidates = []; remoteCallStream = null;
+            const ttp = document.getElementById('tap-to-play'); if (ttp) ttp.style.display = 'none';
             if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
             document.getElementById('remote-audio').srcObject = null;
             document.getElementById('remote-video').srcObject = null;
@@ -1770,6 +1980,10 @@
         function onChannelOpen() {
             stopReconnect();
             setBanner('');
+            lastPeerSeen = Date.now();
+            peerVisible = true;
+            sendCtl({ command: 'presence', vis: document.visibilityState });
+            setTimeout(updatePresence, 50);
             const hex = n => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => b.toString(16).padStart(2, '0')).join('');
             if (!room && role === 'offerer') {
                 room = hex(12);
@@ -1812,20 +2026,32 @@
             if (peerConnection) peerConnection.close();
             cleanupCall();
             setBanner('مخاطب از گفتگو خارج شد.', '#f8d7da');
+            updatePresence();
+            const txt = document.getElementById('peer-status-text'); if (txt) txt.textContent = 'خارج شد';
         }
 
-        async function startReconnect() {
+        // اگر force باشد، حتی وقتی کانال ظاهراً باز است (ولی مرده) اتصال از نو ساخته می‌شود
+        async function startReconnect(force) {
             if (reconnecting) return;
-            if (dataChannel && dataChannel.readyState === 'open') return;
+            if (!force && dataChannel && dataChannel.readyState === 'open' && Date.now() - lastPeerSeen < 15000) return;
             if (!room) {
                 setBanner('ارتباط قطع شد.', '#f8d7da');
                 return;
             }
             reconnecting = true;
-            try { cleanupCall(); } catch (e) {}
+            updatePresence();
+            try { cleanupCall(); hideCallModal(); } catch (e) {}
             reconnectDeadline = Date.now() + 10 * 60 * 1000;
             setBanner('ارتباط قطع شد؛ در حال اتصال مجدد...');
             if (!roomSecret) { reconnecting = false; setBanner('ارتباط قطع شد.', '#f8d7da'); return; }
+            if (force && dataChannel) {
+                try { if (dataChannel.readyState === 'open') dataChannel.send(JSON.stringify({ type: 'control', command: 'reconnect' })); } catch (e) {}
+                if (role === 'answerer') {
+                    dataChannel.onclose = null;
+                    try { dataChannel.close(); } catch (e) {}
+                    try { peerConnection.close(); } catch (e) {}
+                }
+            }
             signalKey = await deriveKey(roomSecret, 'room');
 
             if (role === 'answerer') {
@@ -1865,8 +2091,85 @@
             stopReconnect();
             setBanner('اتصال مجدد ممکن نشد. صفحه را باز نگه دارید و دوباره تلاش کنید.', '#f8d7da');
             const b = document.getElementById('reconnect-banner');
-            b.onclick = () => { b.onclick = null; startReconnect(); };
+            b.onclick = () => { b.onclick = null; manualReconnect(); };
+            updatePresence();
         }
+
+        function manualReconnect() {
+            if (!room || !roomSecret) { alert('اطلاعات اتاق در دسترس نیست؛ باید با عدد اتصال دوباره وصل شوید.'); return; }
+            stopReconnect();
+            startReconnect(true);
+        }
+
+        // ---------- وضعیت آنلاین مخاطب و فعالیت او ----------
+        let lastPeerSeen = 0;
+        let peerVisible = true;
+        let peerTyping = false;
+        let peerActivity = '';
+        let lastActivityRender = 0;
+        let lastHeartbeatTick = Date.now();
+
+        function sendCtl(obj) {
+            try { if (dataChannel && dataChannel.readyState === 'open') dataChannel.send(JSON.stringify(Object.assign({ type: 'control' }, obj))); } catch (e) {}
+        }
+
+        function sendActivity(what) { sendCtl({ command: 'activity', what }); }
+
+        function renderPeerActivity() {
+            lastActivityRender = Date.now();
+            const el = document.getElementById('typing-indicator');
+            if (!el) return;
+            let text = '';
+            const ids = Object.keys(incomingFiles);
+            if (ids.length) {
+                const f = incomingFiles[ids[0]];
+                const pct = f.totalBytes ? Math.floor(f.receivedBytes * 100 / f.totalBytes) : 0;
+                const kind = mimeToType(f.mime);
+                const label = kind === 'audio' ? 'صدا' : kind === 'video' ? 'فیلم' : kind === 'img' ? 'عکس' : 'فایل';
+                text = 'در حال ارسال ' + label + ' ' + String(pct).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]) + '٪';
+            } else if (peerActivity === 'voice') text = '🎤 در حال ضبط صدا...';
+            else if (peerActivity === 'video') text = '🎥 در حال ضبط فیلم...';
+            else if (peerTyping) text = 'در حال تایپ...';
+            el.textContent = text;
+            el.style.display = text ? 'block' : 'none';
+        }
+
+        function updatePresence() {
+            const dot = document.getElementById('peer-dot');
+            const txt = document.getElementById('peer-status-text');
+            if (!dot || !txt) return;
+            const open = dataChannel && dataChannel.readyState === 'open';
+            const fresh = Date.now() - lastPeerSeen < 12000;
+            const iceBad = peerConnection && peerConnection.iceConnectionState === 'disconnected';
+            let label, color;
+            if (reconnecting) { label = 'در حال اتصال مجدد...'; color = '#ff9800'; }
+            else if (open && fresh && !iceBad) {
+                if (peerVisible) { label = 'آنلاین'; color = '#4caf50'; }
+                else { label = 'بیرون از برنامه'; color = '#ffc107'; }
+            } else if (open && !peerVisible) { label = 'بیرون از برنامه'; color = '#ffc107'; }
+            else { label = 'آفلاین'; color = '#f44336'; }
+            txt.textContent = label;
+            dot.style.background = color;
+            if (!open || !fresh) { peerTyping = false; peerActivity = ''; renderPeerActivity(); }
+        }
+
+        setInterval(() => {
+            const now = Date.now();
+            const frozen = now - lastHeartbeatTick > 10000;   // صفحه خودمان در پس‌زمینه خوابیده بود
+            lastHeartbeatTick = now;
+            if (frozen) { lastPeerSeen = Math.max(lastPeerSeen, now - 5000); }
+            sendCtl({ command: 'ping', vis: document.visibilityState });
+            updatePresence();
+            // کانال باز است ولی مخاطبی که در برنامه بود ۲۰ ثانیه هیچ پیامی نفرستاده: اتصال مرده است
+            if (!frozen && room && !reconnecting && document.visibilityState === 'visible' &&
+                dataChannel && dataChannel.readyState === 'open' && peerVisible && lastPeerSeen && now - lastPeerSeen > 20000) {
+                startReconnect(true);
+            }
+        }, 4000);
+
+        document.addEventListener('visibilitychange', () => {
+            sendCtl({ command: 'presence', vis: document.visibilityState });
+        });
 
         function restoreSession() {
             let s = null;
@@ -1877,7 +2180,7 @@
             showChatUI();
             restoring = true;
             chatLog.forEach(m => {
-                if (m.kind === 'text') addMessageToChat(m.data, m.dir, m.id);
+                if (m.kind === 'text') addMessageToChat(m.data, m.dir, m.id, m.edited);
                 else addStickerToChat(m.data, m.dir, m.id);
             });
             restoring = false;
@@ -1885,37 +2188,58 @@
         }
 
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && room && !reconnecting &&
-                (!dataChannel || dataChannel.readyState !== 'open')) {
-                startReconnect();
+            if (document.visibilityState === 'visible' && room && !reconnecting) {
+                if (!dataChannel || dataChannel.readyState !== 'open') startReconnect();
+                else if (peerConnection && ['disconnected', 'failed'].includes(peerConnection.iceConnectionState)) startReconnect(true);
             }
         });
 
         restoreSession();
-        // ===== جلوگیری از خروج با دکمه back و درخواست تایید =====
+        // ===== دکمه back: بستن پنجره‌ها، خروج از تمام‌صفحه، و تایید خروج =====
+        let confirmExitApp = () => {}, hideExitModal = () => {};
         (function () {
             let allowExit = false;
-            const trap = () => { try { history.pushState({ ourch4: true }, '', location.href); } catch (e) {} };
-            // کروم فقط بعد از اولین لمس کاربر ورودی تاریخچه را برای back معتبر می‌داند
-            const armOnce = () => { trap(); document.removeEventListener('pointerdown', armOnce, true); document.removeEventListener('keydown', armOnce, true); };
-            document.addEventListener('pointerdown', armOnce, true);
-            document.addEventListener('keydown', armOnce, true);
+            let depth = 0;            // تعداد ورودی‌های تاریخچه‌ای که ما اضافه کرده‌ایم
+            let gestureArmed = false; // کروم ورودی‌ای را که بدون لمس کاربر ساخته شده نادیده می‌گیرد
+            const trap = () => { try { history.pushState({ ourch4: Date.now() }, '', location.href); depth++; } catch (e) {} };
+            const arm = () => { if (!gestureArmed && !allowExit) { trap(); gestureArmed = true; } };
+            ['pointerdown', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, arm, true));
+
+            const isShown = id => { const el = document.getElementById(id); return el && getComputedStyle(el).display !== 'none'; };
+            const hide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+
+            hideExitModal = () => hide('exit-modal');
+            confirmExitApp = () => {
+                allowExit = true;
+                hide('exit-modal');
+                try { history.go(-(depth + 1)); } catch (e) {}
+                setTimeout(() => { try { window.close(); } catch (e) {} }, 400);
+            };
 
             window.addEventListener('popstate', () => {
                 if (allowExit) return;
-                // اگر پنل استیکر باز است، back فقط آن را می‌بندد
-                const panel = document.getElementById('sticker-panel');
-                if (panel && panel.style.display === 'grid') { panel.style.display = 'none'; trap(); return; }
-                if (confirm('آیا می‌خواهید از برنامه خارج شوید؟')) {
-                    allowExit = true;
-                    history.back();
-                    setTimeout(() => { try { window.close(); } catch (e) {} }, 300);
-                } else {
-                    trap();
-                }
+                depth = Math.max(0, depth - 1);
+                gestureArmed = false;
+                trap();   // تلاش برای نگه داشتن کاربر؛ با اولین لمس بعدی دوباره محکم می‌شود
+
+                // ۱) اگر فیلم تمام‌صفحه است فقط از تمام‌صفحه خارج شو
+                const fs = document.fullscreenElement || document.webkitFullscreenElement;
+                if (fs) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {} return; }
+                // ۲) پنجره‌ها و پنل‌های باز را به ترتیب ببند
+                if (isShown('exit-modal')) { hide('exit-modal'); return; }
+                if (isShown('sticker-panel')) { hide('sticker-panel'); return; }
+                if (isShown('preview-modal')) { cancelSendMedia(); return; }
+                if (isShown('delete-modal')) { hideDeleteModal(); return; }
+                if (isShown('wipe-modal')) { hideWipeModal(); return; }
+                if (isShown('in-app-record-modal')) { closeInAppRecordModal(); return; }
+                if (isShown('video-call-modal') || (isShown('call-modal'))) return; // تماس با back قطع نمی‌شود
+                if (selectedMessages.length) { clearSelection(); return; }
+                if (editingId) { cancelEdit(); return; }
+                // ۳) پخش فیلم را متوقف کن و تایید خروج بخواه
+                document.querySelectorAll('video, audio').forEach(v => { if (v.id !== 'remote-video' && v.id !== 'local-video' && v.id !== 'remote-audio' && !v.paused) { try { v.pause(); } catch (e) {} } });
+                document.getElementById('exit-modal').style.display = 'flex';
             });
 
-            // بستن تب یا رفرش صفحه هم تایید بخواهد
             window.addEventListener('beforeunload', (e) => {
                 if (allowExit) return;
                 e.preventDefault();
