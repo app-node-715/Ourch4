@@ -311,6 +311,10 @@
         .edit-bar .edit-preview { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: normal; color: #555; }
         .edit-bar button { background: #eee; color: #333; border: none; border-radius: 14px; padding: 4px 10px; cursor: pointer; font-family: inherit; }
         .msg-text { white-space: pre-wrap; }
+        .media-container video, .media-container audio { -webkit-touch-callout: none; }
+        .hold-hint { font-size: 11px; color: #888; display: block; margin-top: 2px; }
+        .call-rec-on { background-color: #d9534f !important; animation: blink 1.2s infinite; }
+        .bg-music-name { font-size: 12px; color: #075e54; margin-top: 4px; display: none; }
         .edited-tag { font-size: 11px; color: #888; margin-right: 6px; }
         .send-progress { font-size: 12px; color: #666; }
         .peer-status { font-family: Tahoma, Arial, sans-serif; font-size: 12px; font-weight: normal; margin-right: 8px; color: #b2dfdb; white-space: nowrap; }
@@ -496,9 +500,12 @@
         <div id="in-app-record-modal" class="modal-overlay">
             <div class="modal-content" style="width: 310px;">
                 <video id="in-app-record-video" autoplay playsinline muted></video>
+                <div class="bg-music-name" id="bg-music-name"></div>
+                <input type="file" id="bg-music-input" accept="audio/*" style="display:none;">
                 <div id="rec-timer" class="record-timer-text">⏺ ضبط: <span id="rec-sec">0</span> ثانیه</div>
                 <div class="btn-group" style="margin-top: 10px;">
                     <button class="btn" onclick="switchRecordCamera()" style="background-color: #34b7f1;" title="چرخش">🔄</button>
+                    <button class="btn" id="bg-music-btn" onclick="pickBgMusic()" style="background-color: #8e44ad;" title="آهنگ زمینه">🎵</button>
                     <button id="start-rec-btn" class="btn btn-danger" onclick="startInAppRecording()">شروع ضبط</button>
                     <button id="stop-rec-btn" class="btn" style="display:none; background-color:#e6b800;" onclick="stopInAppRecording()">توقف</button>
                     <button class="btn" style="background-color: #6c757d;" onclick="closeInAppRecordModal()">بستن</button>
@@ -514,7 +521,8 @@
                     <button class="btn btn-danger" onclick="rejectCall()">رد</button>
                 </div>
                 <div class="btn-group" id="call-active-btns" style="display:none; margin-top: 20px;">
-                    <button class="btn btn-danger" onclick="endCall()" style="width: 100%;">قطع تماس</button>
+                    <button class="btn" id="call-rec-btn-audio" onclick="toggleCallRecording()" style="background-color:#6c757d;">⏺ ضبط تماس</button>
+                    <button class="btn btn-danger" onclick="endCall()">قطع تماس</button>
                 </div>
             </div>
         </div>
@@ -526,6 +534,7 @@
             <div class="video-call-controls">
                 <button class="call-action-circle" onclick="switchCamera()" style="background-color: #34b7f1;" title="چرخش دوربین">🔄</button>
                 <button class="call-action-circle" id="mute-mic-btn" onclick="toggleMute()" style="background-color: #6c757d;" title="میکروفون">🎙️</button>
+                <button class="call-action-circle" id="call-rec-btn-video" onclick="toggleCallRecording()" style="background-color: #6c757d;" title="ضبط تماس">⏺</button>
                 <button class="call-action-circle" onclick="endCall()" style="background-color: #d9534f;" title="قطع تماس">🛑</button>
             </div>
         </div>
@@ -1013,6 +1022,10 @@
                         } else if (msg.command === 'presence') {
                             peerVisible = msg.vis !== 'hidden';
                             updatePresence();
+                        } else if (msg.command === 'call-recording') {
+                            const note = msg.on ? '⏺ مخاطب در حال ضبط تماس است' : 'ضبط تماس توسط مخاطب متوقف شد';
+                            setBanner(note, msg.on ? '#f8d7da' : '#d4edda');
+                            if (!msg.on) setTimeout(() => setBanner(''), 3000);
                         } else if (msg.command === 'reconnect') {
                             startReconnect(true);
                         }
@@ -1340,14 +1353,19 @@
             }
             mediaWrapper.appendChild(el);
             
-            const downloadLink = document.createElement('a');
-            downloadLink.href = blobUrl;
-            downloadLink.download = fileName || ((mediaType === 'video') ? 'video.mp4' : (mediaType === 'audio') ? 'voice.webm' : (mediaType === 'file') ? 'file' : 'image.png');
-            downloadLink.onclick = (e) => e.stopPropagation();
-            downloadLink.className = 'download-btn';
-            downloadLink.textContent = '⬇️ دانلود';
-            
-            mediaWrapper.appendChild(downloadLink);
+            const dlName = fileName || ((mediaType === 'video') ? 'video.mp4' : (mediaType === 'audio') ? 'voice.webm' : (mediaType === 'file') ? 'file' : 'image.png');
+            if (mediaType === 'video' || mediaType === 'audio') {
+                // دکمه دانلود حذف شد؛ با نگه داشتن انگشت روی فیلم/وویس دانلود می‌شود
+                attachLongPressDownload(div, blobUrl, dlName);
+            } else {
+                const downloadLink = document.createElement('a');
+                downloadLink.href = blobUrl;
+                downloadLink.download = dlName;
+                downloadLink.onclick = (e) => e.stopPropagation();
+                downloadLink.className = 'download-btn';
+                downloadLink.textContent = '⬇️ دانلود';
+                mediaWrapper.appendChild(downloadLink);
+            }
             div.appendChild(mediaWrapper);
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
@@ -1355,6 +1373,31 @@
             el.onload = () => { container.scrollTop = container.scrollHeight; };
             el.onloadeddata = () => { container.scrollTop = container.scrollHeight; };
             return div;
+        }
+
+        function downloadBlob(url, name) {
+            const a = document.createElement('a');
+            a.href = url; a.download = name; a.style.display = 'none';
+            document.body.appendChild(a); a.click();
+            setTimeout(() => a.remove(), 1000);
+        }
+
+        function attachLongPressDownload(target, url, name) {
+            let timer = null, sx = 0, sy = 0, fired = false;
+            const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+            target.addEventListener('contextmenu', e => e.preventDefault());
+            target.addEventListener('pointerdown', e => {
+                fired = false; sx = e.clientX; sy = e.clientY; cancel();
+                timer = setTimeout(() => {
+                    timer = null; fired = true;
+                    if (navigator.vibrate) { try { navigator.vibrate(30); } catch (er) {} }
+                    if (confirm('این فایل دانلود شود؟')) downloadBlob(url, name);
+                }, 600);
+            });
+            target.addEventListener('pointermove', e => { if (Math.abs(e.clientX - sx) > 12 || Math.abs(e.clientY - sy) > 12) cancel(); });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => target.addEventListener(ev, cancel));
+            // بعد از نگه داشتن، لمس به معنی انتخاب پیام حساب نشود
+            target.addEventListener('click', e => { if (fired) { e.stopPropagation(); e.preventDefault(); fired = false; } }, true);
         }
 
         async function openInAppRecordModal() {
@@ -1375,7 +1418,8 @@
             }
             recStream = await navigator.mediaDevices.getUserMedia({
                 video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 20 }, facingMode: facing },
-                audio: true
+                // بدون حذف اکو/نویز: گوشی وارد حالت «مکالمه» نمی‌شود و آهنگ در حال پخش معمولاً قطع نمی‌شود و در فیلم ضبط می‌شود
+                audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
             });
             const v = document.getElementById('in-app-record-video');
             v.srcObject = recStream;
@@ -1397,7 +1441,65 @@
             }
             clearInterval(recTimerInterval);
             sendActivity('');
+            stopBgMusic();
             document.getElementById('in-app-record-modal').style.display = 'none';
+        }
+
+        // ---------- آهنگ زمینه برای فیلم ----------
+        let bgMusicUrl = null, bgAudioEl = null, bgCtx = null, bgSrcNode = null;
+
+        function pickBgMusic() {
+            if (bgMusicUrl) {   // دوباره زدن = حذف آهنگ
+                stopBgMusic(true);
+                return;
+            }
+            document.getElementById('bg-music-input').click();
+        }
+
+        document.getElementById('bg-music-input').addEventListener('change', function (e) {
+            const f = e.target.files[0];
+            e.target.value = '';
+            if (!f) return;
+            bgMusicUrl = URL.createObjectURL(f);
+            const n = document.getElementById('bg-music-name');
+            n.textContent = '🎵 ' + f.name + ' (برای حذف دوباره 🎵 را بزنید)';
+            n.style.display = 'block';
+        });
+
+        function stopBgMusic(forget) {
+            if (bgAudioEl) { try { bgAudioEl.pause(); } catch (e) {} }
+            if (bgCtx) { try { bgCtx.close(); } catch (e) {} }
+            bgAudioEl = null; bgCtx = null; bgSrcNode = null;
+            if (forget) {
+                if (bgMusicUrl) URL.revokeObjectURL(bgMusicUrl);
+                bgMusicUrl = null;
+                const n = document.getElementById('bg-music-name');
+                n.style.display = 'none'; n.textContent = '';
+            }
+        }
+
+        // صدای میکروفون + آهنگ انتخاب‌شده را با هم ترکیب می‌کند
+        function buildRecordStream() {
+            if (!bgMusicUrl || !recStream) return recStream;
+            try {
+                bgCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const dest = bgCtx.createMediaStreamDestination();
+                if (recStream.getAudioTracks().length) {
+                    bgCtx.createMediaStreamSource(new MediaStream(recStream.getAudioTracks())).connect(dest);
+                }
+                bgAudioEl = new Audio(bgMusicUrl);
+                bgAudioEl.loop = true;
+                bgSrcNode = bgCtx.createMediaElementSource(bgAudioEl);
+                const musicGain = bgCtx.createGain(); musicGain.gain.value = 0.6;
+                bgSrcNode.connect(musicGain);
+                musicGain.connect(dest);                 // داخل فیلم
+                const monitor = bgCtx.createGain(); monitor.gain.value = 0.35;
+                musicGain.connect(monitor); monitor.connect(bgCtx.destination);   // آرام از بلندگو هم شنیده شود
+                bgAudioEl.play().catch(() => {});
+                return new MediaStream([...recStream.getVideoTracks(), ...dest.stream.getAudioTracks()]);
+            } catch (e) {
+                return recStream;
+            }
         }
 
         function startInAppRecording() {
@@ -1415,10 +1517,11 @@
                 videoBitsPerSecond: 450000
             } : { videoBitsPerSecond: 450000 };
 
+            const streamToRecord = buildRecordStream();
             try {
-                internalRecorder = new MediaRecorder(recStream, recOptions);
+                internalRecorder = new MediaRecorder(streamToRecord, recOptions);
             } catch(e) {
-                internalRecorder = new MediaRecorder(recStream);
+                internalRecorder = new MediaRecorder(streamToRecord);
             }
 
             internalRecorder.ondataavailable = e => {
@@ -1869,7 +1972,86 @@
             hideCallModal();
         }
 
+        // ---------- ضبط تماس (روی خود گوشی؛ از حجم Metered استفاده نمی‌کند) ----------
+        let callRecorder = null, callRecChunks = [], callRecCtx = null, callRecDraw = null, callRecStart = 0;
+
+        function setCallRecButtons(on) {
+            ['call-rec-btn-audio', 'call-rec-btn-video'].forEach(id => {
+                const b = document.getElementById(id);
+                if (!b) return;
+                b.classList.toggle('call-rec-on', on);
+                if (id === 'call-rec-btn-audio') b.textContent = on ? '⏹ پایان ضبط' : '⏺ ضبط تماس';
+            });
+        }
+
+        function toggleCallRecording() {
+            if (callRecorder && callRecorder.state === 'recording') { stopCallRecording(); return; }
+            startCallRecording();
+        }
+
+        function startCallRecording() {
+            if (!callConnection || !localStream) return alert('تماسی در جریان نیست.');
+            try {
+                callRecCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const dest = callRecCtx.createMediaStreamDestination();
+                const addAudio = s => { if (s && s.getAudioTracks().length) callRecCtx.createMediaStreamSource(new MediaStream(s.getAudioTracks())).connect(dest); };
+                addAudio(localStream);
+                const remoteEl = document.getElementById(isCurrentCallVideo ? 'remote-video' : 'remote-audio');
+                addAudio(remoteEl.srcObject);
+                const tracks = [...dest.stream.getAudioTracks()];
+                let options;
+                if (isCurrentCallVideo) {
+                    // تصویر مخاطب بزرگ + تصویر خودم کوچک، با کیفیت پایین برای حجم کم
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 360; canvas.height = 480;
+                    const g = canvas.getContext('2d');
+                    const rv = document.getElementById('remote-video'), lv = document.getElementById('local-video');
+                    const draw = () => {
+                        g.fillStyle = '#000'; g.fillRect(0, 0, 360, 480);
+                        try { if (rv.videoWidth) g.drawImage(rv, 0, 0, 360, 480); } catch (e) {}
+                        try { if (lv.videoWidth) g.drawImage(lv, 250, 10, 100, 133); } catch (e) {}
+                    };
+                    callRecDraw = setInterval(draw, 1000 / 12);
+                    tracks.unshift(canvas.captureStream(12).getVideoTracks()[0]);
+                    const vm = ['video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find(m => MediaRecorder.isTypeSupported(m));
+                    options = Object.assign(vm ? { mimeType: vm } : {}, { videoBitsPerSecond: 220000, audioBitsPerSecond: 24000 });
+                } else {
+                    const am = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'].find(m => MediaRecorder.isTypeSupported(m));
+                    options = Object.assign(am ? { mimeType: am } : {}, { audioBitsPerSecond: 24000 });
+                }
+                const mixed = new MediaStream(tracks);
+                try { callRecorder = new MediaRecorder(mixed, options); } catch (e) { callRecorder = new MediaRecorder(mixed); }
+                callRecChunks = [];
+                callRecorder.ondataavailable = e => { if (e.data && e.data.size) callRecChunks.push(e.data); };
+                callRecorder.onstop = () => {
+                    const type = callRecorder.mimeType || (isCurrentCallVideo ? 'video/webm' : 'audio/webm');
+                    const blob = new Blob(callRecChunks, { type });
+                    const ext = type.includes('mp4') ? (isCurrentCallVideo ? 'mp4' : 'm4a') : type.includes('ogg') ? 'ogg' : 'webm';
+                    const d = new Date(callRecStart);
+                    const stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + '_' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0');
+                    if (blob.size) downloadBlob(URL.createObjectURL(blob), (isCurrentCallVideo ? 'video-call-' : 'voice-call-') + stamp + '.' + ext);
+                    callRecChunks = []; callRecorder = null;
+                    if (callRecDraw) { clearInterval(callRecDraw); callRecDraw = null; }
+                    if (callRecCtx) { try { callRecCtx.close(); } catch (e) {} callRecCtx = null; }
+                    setCallRecButtons(false);
+                };
+                callRecStart = Date.now();
+                callRecorder.start(1000);
+                setCallRecButtons(true);
+            } catch (e) {
+                alert('ضبط تماس روی این مرورگر ممکن نشد: ' + e.message);
+                setCallRecButtons(false);
+            }
+        }
+
+        function stopCallRecording() {
+            if (callRecorder && callRecorder.state === 'recording') {
+                callRecorder.stop();
+            }
+        }
+
         function cleanupCall() {
+            stopCallRecording();
             if (callConnection) { callConnection.close(); callConnection = null; }
             pendingCallCandidates = []; remoteCallStream = null;
             const ttp = document.getElementById('tap-to-play'); if (ttp) ttp.style.display = 'none';
