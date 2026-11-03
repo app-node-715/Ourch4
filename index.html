@@ -651,10 +651,16 @@
                            'turn:global.relay.metered.ca:443', 'turns:global.relay.metered.ca:443?transport=tcp'],
                     username: 'e8b0a020df4d5b47aeca2606', credential: 'zvpq7cuWEQ38gtrs'
                 };
+        // سرور رله رایگان ExpressTURN (ماهی ۱۰۰۰ گیگ، فقط پورت ۳۴۷۸)
+        const EXPRESS_TURN = {
+                    urls: ['turn:free.expressturn.com:3478', 'turn:free.expressturn.com:3478?transport=tcp'],
+                    username: '000000002109081586', credential: '9fCl7XAhyzPfNhmbACRx8gzixDE='
+                };
         const rtcConfig = {
             iceServers: [
                 { urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302', 'stun:stun.relay.metered.ca:80'] },
                 // سرور رله (TURN) Metered: وقتی مسیر مستقیم بین دو اپراتور (مثلاً همراه اول و ایرانسل) پیدا نشود
+                EXPRESS_TURN,
                 METERED_TURN
             ]
         };
@@ -664,7 +670,7 @@
             const box = document.getElementById('same-operator');
             const same = box ? box.checked : localStorage.getItem('ourch4-same-op') === '1';
             try { localStorage.setItem('ourch4-same-op', same ? '1' : '0'); } catch (e) {}
-            rtcConfig.iceServers = same ? [rtcConfig.iceServers[0]] : [rtcConfig.iceServers[0], METERED_TURN];
+            rtcConfig.iceServers = same ? [rtcConfig.iceServers[0]] : [rtcConfig.iceServers[0], EXPRESS_TURN, METERED_TURN];
         }
         (function () {
             let same = false;
