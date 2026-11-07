@@ -845,6 +845,46 @@
 
         function signalTopic(code) { return 'ourch4-p2p-k7x3-' + code; }
 
+        // سرور واسط دوم (کلادفلر)؛ هر پیام به هر دو سرور فرستاده و از هر دو خوانده می‌شود
+        const SIGNAL_URL2 = 'https://ourch4-signal.ourch4.workers.dev/t/';
+
+        // منبع پیام دوگانه با رابط شبیه EventSource
+        function makeSource(topic, sinceSec, pollMs) {
+            const src = { readyState: 0, onmessage: null, onerror: null, onopen: null };
+            const seen = new Set();
+            let es = null, esDead = false, pollFails = 0, timer = null, closed = false, opened = false;
+            let since2 = sinceSec * 1000;
+            const deliver = body => {
+                if (closed || seen.has(body)) return;
+                seen.add(body);
+                if (seen.size > 200) seen.delete(seen.values().next().value);
+                if (src.onmessage) src.onmessage({ data: JSON.stringify({ event: 'message', message: body }) });
+            };
+            const markOpen = () => { if (!opened && !closed) { opened = true; src.readyState = 1; if (src.onopen) src.onopen(); } };
+            const checkDead = () => {
+                if (!closed && esDead && pollFails >= 3) { src.readyState = 2; if (src.onerror) src.onerror(); }
+            };
+            try {
+                es = new EventSource(SIGNAL_URL + topic + '/sse?since=' + sinceSec);
+                es.onopen = markOpen;
+                es.onmessage = ev => { try { const o = JSON.parse(ev.data); if (!o.event || o.event === 'message') deliver(o.message); } catch (e) {} };
+                es.onerror = () => { if (es.readyState === 2) { esDead = true; checkDead(); } };
+            } catch (e) { esDead = true; }
+            const poll = async () => {
+                if (closed) return;
+                try {
+                    const r = await fetch(SIGNAL_URL2 + topic + '?since=' + since2, { cache: 'no-store' });
+                    const j = await r.json();
+                    pollFails = 0; markOpen();
+                    (j.msgs || []).forEach(m => { since2 = Math.max(since2, m.t); deliver(m.m); });
+                } catch (e) { pollFails++; checkDead(); }
+                if (!closed) timer = setTimeout(poll, pollMs || 1500);
+            };
+            poll();
+            src.close = () => { closed = true; src.readyState = 2; if (es) es.close(); if (timer) clearTimeout(timer); };
+            return src;
+        }
+
         function closeSignal() {
             if (signalSource) { signalSource.close(); signalSource = null; }
             if (signalTimer) { clearTimeout(signalTimer); signalTimer = null; }
@@ -877,13 +917,18 @@
         async function signalSend(code, obj) {
             if (!signalKey) throw new Error('no key');
             const box = await sealMsg(signalKey, Object.assign({ ts: Date.now() }, obj));
-            await fetch(SIGNAL_URL + signalTopic(code), { method: 'POST', body: JSON.stringify(box) });
+            const body = JSON.stringify(box);
+            const rs = await Promise.allSettled([
+                fetch(SIGNAL_URL + signalTopic(code), { method: 'POST', body }),
+                fetch(SIGNAL_URL2 + signalTopic(code), { method: 'POST', body })
+            ]);
+            if (rs.every(r => r.status === 'rejected')) throw new Error('signal servers unreachable');
         }
 
         function signalListen(code, onMsg, back) {
             closeSignal();
             const since = Math.floor(Date.now() / 1000) - (back || 5);
-            signalSource = new EventSource(SIGNAL_URL + signalTopic(code) + '/sse?since=' + since);
+            signalSource = makeSource(signalTopic(code), since, 1500);
             const key = signalKey;
             signalSource.onmessage = async ev => {
                 try {
@@ -2504,7 +2549,7 @@
             const key = await deriveKey(roomSecret, 'room');
             if (reconnecting || !room) return;
             const since = Math.floor(Date.now() / 1000) - 2;
-            const es = new EventSource(SIGNAL_URL + signalTopic(roomCode()) + '/sse?since=' + since);
+            const es = makeSource(signalTopic(roomCode()), since, 8000);
             roomWatch = es;
             es.onmessage = async ev => {
                 try {
